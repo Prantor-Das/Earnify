@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+enum UserRole {
+  FOUNDER
+  USER
+}
+
+enum CampaignStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum SocialPlatform {
+  TWITTER
+  LINKEDIN
+  INSTAGRAM
+}
+
+enum PostStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum PayoutStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String
+  avatar        String?
+  role          UserRole
+  walletAddress String?
+  createdAt     DateTime   @default(now())
+  campaigns     Campaign[]
+  posts         Post[]
+  scores        Score[]
+  payouts       Payout[]
+}
+
+model Campaign {
+  id                      String         @id @default(cuid())
+  title                   String
+  description             String
+  productUrl              String
+  totalBudget             Decimal        @db.Decimal(12, 2)
+  remainingBudget         Decimal        @db.Decimal(12, 2)
+  status                  CampaignStatus @default(ACTIVE)
+  founderId               String
+  founder                 User           @relation(fields: [founderId], references: [id], onDelete: Cascade)
+  stellarWalletPublicKey  String
+  createdAt               DateTime       @default(now())
+  endsAt                  DateTime
+  posts                   Post[]
+  scores                  Score[]
+  payouts                 Payout[]
+
+  @@index([founderId])
+}
+
+model Post {
+  id                String         @id @default(cuid())
+  campaignId        String
+  campaign          Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postUrl           String
+  platform          SocialPlatform
+  status            PostStatus     @default(PENDING)
+  authenticityScore Float?
+  rejectionReason   String?
+  createdAt         DateTime       @default(now())
+  engagements       PostEngagement[]
+  scores            Score[]
+
+  @@index([campaignId])
+  @@index([userId])
+}
+
+model PostEngagement {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  views     Int      @default(0)
+  likes     Int      @default(0)
+  shares    Int      @default(0)
+  comments  Int      @default(0)
+  fetchedAt DateTime @default(now())
+
+  @@index([postId])
+}
+
+model Score {
+  id          String   @id @default(cuid())
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  totalScore  Float
+  updatedAt   DateTime @updatedAt
+
+  @@unique([postId, userId, campaignId])
+  @@index([campaignId])
+  @@index([userId])
+}
+
+model Payout {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId    String
+  campaign      Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  amount        Decimal      @db.Decimal(12, 2)
+  stellarTxHash String?
+  status        PayoutStatus @default(PENDING)
+  createdAt     DateTime     @default(now())
+
+  @@index([userId])
+  @@index([campaignId])
+}

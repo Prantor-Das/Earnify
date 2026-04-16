@@ -1,0 +1,76 @@
+@import "./theme-vars.css";
+@import "tailwindcss";
+
+:root {
+  --color-primary: var(--token-color-primary);
+  --color-secondary: var(--token-color-secondary);
+  --color-accent: var(--token-color-accent);
+  --color-danger: var(--token-color-danger);
+  --color-success: var(--token-color-success);
+  --color-muted: var(--token-color-muted);
+  --color-background: var(--token-color-background);
+  --color-surface: var(--token-color-surface);
+  --color-border: var(--token-color-border);
+  --font-sans: var(--token-font-sans);
+  --font-size-xs: var(--token-font-size-xs);
+  --font-size-sm: var(--token-font-size-sm);
+  --font-size-md: var(--token-font-size-md);
+  --font-size-lg: var(--token-font-size-lg);
+  --font-size-xl: var(--token-font-size-xl);
+  --font-size-2xl: var(--token-font-size-2xl);
+  --font-weight-regular: var(--token-font-weight-regular);
+  --font-weight-medium: var(--token-font-weight-medium);
+  --font-weight-semibold: var(--token-font-weight-semibold);
+  --font-weight-bold: var(--token-font-weight-bold);
+  --space-0: var(--token-space-0);
+  --space-1: var(--token-space-1);
+  --space-2: var(--token-space-2);
+  --space-3: var(--token-space-3);
+  --space-4: var(--token-space-4);
+  --space-5: var(--token-space-5);
+  --space-6: var(--token-space-6);
+  --space-8: var(--token-space-8);
+  --space-10: var(--token-space-10);
+  --space-12: var(--token-space-12);
+  --space-16: var(--token-space-16);
+  --radius-sm: var(--token-radius-sm);
+  --radius-md: var(--token-radius-md);
+  --radius-lg: var(--token-radius-lg);
+  --radius-full: var(--token-radius-full);
+  --breakpoint-sm: var(--token-breakpoint-sm);
+  --breakpoint-md: var(--token-breakpoint-md);
+  --breakpoint-lg: var(--token-breakpoint-lg);
+  --breakpoint-xl: var(--token-breakpoint-xl);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    background: var(--color-background);
+    color: var(--color-muted);
+    font-family: var(--font-sans);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, var(--color-accent), transparent 30%),
+      linear-gradient(180deg, var(--color-background), var(--color-surface));
+    color: var(--color-muted);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

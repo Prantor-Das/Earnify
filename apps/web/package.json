@@ -1,0 +1,25 @@
+{
+  "name": "@earnify/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm run theme:build && next dev --turbopack --port ${WEB_PORT:-3000}",
+    "build": "pnpm run theme:build && next build --webpack",
+    "start": "next start --port ${WEB_PORT:-3000}",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "theme:build": "node --experimental-strip-types scripts/build-theme-css.ts"
+  },
+  "dependencies": {
+    "@earnify/shared": "workspace:*",
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "tailwindcss": "^4.2.2"
+  }
+}
