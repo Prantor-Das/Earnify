@@ -1,10 +1,14 @@
+"use client";
+
+import { withAuth } from "../components/auth/withAuth";
+
 const stats = [
   { label: "Active campaigns", value: "24" },
   { label: "Creators onboarded", value: "3.8K" },
   { label: "Tracked payouts", value: "$148K" }
 ];
 
-export default function HomePage() {
+function HomePage() {
   return (
     <main className="min-h-screen px-4 py-10 sm:px-6 lg:px-8">
       <section
@@ -96,3 +100,5 @@ export default function HomePage() {
     </main>
   );
 }
+
+export default withAuth(HomePage);
