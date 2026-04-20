@@ -12,6 +12,7 @@
   "dependencies": {
     "@earnify/db": "workspace:*",
     "@earnify/shared": "workspace:*",
+    "@stellar/stellar-sdk": "^13.3.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

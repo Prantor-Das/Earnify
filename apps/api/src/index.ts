@@ -10,6 +10,7 @@ import type { ApiHealthResponse } from "@earnify/shared";
 
 import { authRouter } from "./auth/routes";
 import "./auth/passport";
+import { campaignsRouter } from "./routes/campaigns";
 import { sendSuccess } from "./utils/api-response";
 
 const app = express();
@@ -27,6 +28,7 @@ app.use(cookieParser());
 app.use(passport.initialize());
 
 app.use("/api/auth", authRouter);
+app.use("/api/campaigns", campaignsRouter);
 
 app.get("/api/health", async (_request, response) => {
   let campaigns = 0;
@@ -45,19 +47,6 @@ app.get("/api/health", async (_request, response) => {
   };
 
   sendSuccess(response, payload);
-});
-
-app.get("/api/campaigns", async (_request, response) => {
-  const campaigns = await prisma.campaign.findMany({
-    include: {
-      founder: true
-    },
-    orderBy: {
-      createdAt: "desc"
-    }
-  });
-
-  sendSuccess(response, campaigns);
 });
 
 app.listen(port, () => {

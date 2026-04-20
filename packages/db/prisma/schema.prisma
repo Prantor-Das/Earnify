@@ -61,6 +61,7 @@ model Campaign {
   founderId               String
   founder                 User           @relation(fields: [founderId], references: [id], onDelete: Cascade)
   stellarWalletPublicKey  String
+  stellarWalletSecretKeyEncrypted String?
   createdAt               DateTime       @default(now())
   endsAt                  DateTime
   posts                   Post[]
