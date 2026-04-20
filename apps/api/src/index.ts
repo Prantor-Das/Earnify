@@ -11,6 +11,7 @@ import type { ApiHealthResponse } from "@earnify/shared";
 import { authRouter } from "./auth/routes";
 import "./auth/passport";
 import { campaignsRouter } from "./routes/campaigns";
+import { postsRouter } from "./routes/posts";
 import { sendSuccess } from "./utils/api-response";
 
 const app = express();
@@ -29,6 +30,7 @@ app.use(passport.initialize());
 
 app.use("/api/auth", authRouter);
 app.use("/api/campaigns", campaignsRouter);
+app.use("/api/posts", postsRouter);
 
 app.get("/api/health", async (_request, response) => {
   let campaigns = 0;

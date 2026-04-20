@@ -7,17 +7,21 @@
     "dev": "node --watch --experimental-strip-types src/index.ts",
     "build": "tsc --noEmit -p tsconfig.json",
     "start": "node --experimental-strip-types src/index.ts",
-    "lint": "tsc --noEmit -p tsconfig.json"
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
     "@earnify/db": "workspace:*",
     "@earnify/shared": "workspace:*",
     "@stellar/stellar-sdk": "^13.3.0",
+    "axios": "^1.12.2",
+    "cheerio": "^1.1.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
+    "openai": "^5.20.2",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0"
   },
@@ -28,6 +32,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
   }
 }

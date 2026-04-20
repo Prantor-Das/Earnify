@@ -51,6 +51,20 @@ type LeaderboardItem = {
 
 type ActiveTab = "leaderboard" | "submit";
 
+type PostSubmissionResponse = {
+  postId: string;
+  status: PostStatus;
+};
+
+type PostStatusResponse = {
+  postId: string;
+  status: PostStatus;
+  rejectionReason?: string | null;
+  authenticityScore?: number | null;
+};
+
+type SubmissionPhase = "idle" | "submitting" | "pending" | "verified" | "rejected" | "error";
+
 function CampaignDetailsPage() {
   const params = useParams<{ id: string }>();
   const campaignId = params.id;
@@ -63,7 +77,10 @@ function CampaignDetailsPage() {
 
   const [postUrl, setPostUrl] = useState("");
   const [platform, setPlatform] = useState<SocialPlatform>("TWITTER");
-  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+  const [submissionPhase, setSubmissionPhase] = useState<SubmissionPhase>("idle");
+  const [submittedPostId, setSubmittedPostId] = useState<string | null>(null);
+  const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
 
   useEffect(() => {
     if (!campaignId) {
@@ -118,9 +135,125 @@ function CampaignDetailsPage() {
 
   const handleSubmitPost = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setSubmitMessage(`Submission queued for review: ${platform} -> ${postUrl}`);
-    setPostUrl("");
+
+    const submitPost = async () => {
+      if (!campaignId) {
+        return;
+      }
+
+      setSubmissionPhase("submitting");
+      setSubmissionMessage(null);
+      setRejectionReason(null);
+      setSubmittedPostId(null);
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/posts`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            campaignId,
+            postUrl,
+            platform
+          })
+        });
+
+        const payload = (await response.json()) as ApiResponse<PostSubmissionResponse>;
+
+        if (!response.ok || !payload.success || !payload.data?.postId) {
+          setSubmissionPhase("error");
+          setSubmissionMessage(payload.error ?? "Failed to submit post");
+          return;
+        }
+
+        setSubmittedPostId(payload.data.postId);
+        setSubmissionPhase("pending");
+        setSubmissionMessage("Verifying your post...");
+      } catch {
+        setSubmissionPhase("error");
+        setSubmissionMessage("Failed to submit post");
+      }
+    };
+
+    void submitPost();
   };
+
+  useEffect(() => {
+    if (!submittedPostId || submissionPhase !== "pending") {
+      return;
+    }
+
+    let isCancelled = false;
+    let attempts = 0;
+    const maxAttempts = 40;
+
+    const pollStatus = async () => {
+      if (isCancelled) {
+        return;
+      }
+
+      attempts += 1;
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/posts/${submittedPostId}/status`, {
+          method: "GET",
+          credentials: "include"
+        });
+
+        const payload = (await response.json()) as ApiResponse<PostStatusResponse>;
+
+        if (!response.ok || !payload.success || !payload.data) {
+          if (!isCancelled) {
+            setSubmissionPhase("error");
+            setSubmissionMessage(payload.error ?? "Unable to check verification status");
+          }
+          return;
+        }
+
+        if (payload.data.status === "VERIFIED") {
+          if (!isCancelled) {
+            setSubmissionPhase("verified");
+            setSubmissionMessage("Post verified! You're on the leaderboard.");
+            setPostUrl("");
+          }
+          return;
+        }
+
+        if (payload.data.status === "REJECTED") {
+          if (!isCancelled) {
+            setSubmissionPhase("rejected");
+            setRejectionReason(payload.data.rejectionReason ?? "Post verification failed");
+          }
+          return;
+        }
+
+        if (attempts < maxAttempts) {
+          setTimeout(() => {
+            void pollStatus();
+          }, 2500);
+          return;
+        }
+
+        if (!isCancelled) {
+          setSubmissionPhase("error");
+          setSubmissionMessage("Verification timed out. Please try polling again.");
+        }
+      } catch {
+        if (!isCancelled) {
+          setSubmissionPhase("error");
+          setSubmissionMessage("Unable to check verification status");
+        }
+      }
+    };
+
+    void pollStatus();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [submissionPhase, submittedPostId]);
 
   if (loading) {
     return (
@@ -265,16 +398,37 @@ function CampaignDetailsPage() {
 
               <button
                 type="submit"
+                disabled={submissionPhase === "submitting" || submissionPhase === "pending"}
                 className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-secondary"
                 style={{
                   background: "linear-gradient(120deg, color-mix(in srgb, var(--color-primary) 20%, white), var(--color-surface))"
                 }}
               >
-                Submit for Review
+                {submissionPhase === "submitting" ? "Submitting..." : "Submit for Review"}
               </button>
             </form>
 
-            {submitMessage ? <p className="mt-4 text-sm text-success">{submitMessage}</p> : null}
+            {submissionPhase === "pending" ? (
+              <p className="mt-4 inline-flex items-center gap-2 text-sm text-muted">
+                <span
+                  aria-hidden
+                  className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-muted border-t-primary"
+                />
+                Verifying your post...
+              </p>
+            ) : null}
+
+            {submissionPhase === "verified" ? (
+              <p className="mt-4 text-sm text-success">Post verified! You&apos;re on the leaderboard.</p>
+            ) : null}
+
+            {submissionPhase === "rejected" ? (
+              <p className="mt-4 text-sm text-danger">Post rejected: {rejectionReason ?? "Verification failed"}</p>
+            ) : null}
+
+            {submissionPhase === "error" && submissionMessage ? (
+              <p className="mt-4 text-sm text-danger">{submissionMessage}</p>
+            ) : null}
           </section>
         )}
       </section>
