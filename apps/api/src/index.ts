@@ -13,6 +13,7 @@ import type { ApiHealthResponse } from "@earnify/shared";
 import { authRouter } from "./auth/routes";
 import "./auth/passport";
 import { startEngagementCron } from "./jobs/engagementCron";
+import { globalErrorHandler, notFoundHandler } from "./middleware/error-handler";
 import { adminRouter } from "./routes/admin";
 import { campaignsRouter } from "./routes/campaigns";
 import { dashboardRouter } from "./routes/dashboard";
@@ -23,11 +24,37 @@ import { initWebsocket } from "./websocket";
 
 const app = express();
 const port = Number(process.env.API_PORT ?? 4000);
-const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:3000";
+
+function normalizeOrigin(value: string) {
+  return value.trim().replace(/\/+$/, "");
+}
+
+function getAllowedOrigins() {
+  const configuredOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(",")
+    : [process.env.WEB_ORIGIN ?? "http://localhost:3000"];
+
+  return configuredOrigins.map(normalizeOrigin).filter(Boolean);
+}
+
+const allowedOrigins = getAllowedOrigins();
 
 app.use(
   cors({
-    origin: webOrigin,
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const normalizedOrigin = normalizeOrigin(origin);
+      if (allowedOrigins.includes(normalizedOrigin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(null, false);
+    },
     credentials: true
   })
 );
@@ -61,12 +88,14 @@ app.get("/api/health", async (_request, response) => {
   sendSuccess(response, payload);
 });
 
+app.use(notFoundHandler);
+app.use(globalErrorHandler);
+
 const server = createServer(app);
 
-initWebsocket(server, webOrigin);
+initWebsocket(server, allowedOrigins);
 startEngagementCron();
 
 server.listen(port, () => {
   console.log(`Earnify API listening on http://localhost:${port}`);
 });
-

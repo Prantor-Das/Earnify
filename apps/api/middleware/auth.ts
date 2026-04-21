@@ -23,7 +23,8 @@ const jwtCookieName = process.env.JWT_COOKIE_NAME ?? "earnify_token";
 function unauthorized(response: Response) {
   const payload: ApiResponse<never> = {
     success: false,
-    error: "Unauthorized"
+    error: "Unauthorized",
+    code: "UNAUTHORIZED"
   };
 
   return response.status(401).json(payload);
@@ -32,7 +33,8 @@ function unauthorized(response: Response) {
 function forbidden(response: Response) {
   const payload: ApiResponse<never> = {
     success: false,
-    error: "Forbidden"
+    error: "Forbidden",
+    code: "FORBIDDEN"
   };
 
   return response.status(403).json(payload);

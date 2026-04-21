@@ -15,6 +15,24 @@ const jwtExpiresIn = process.env.JWT_EXPIRES_IN ?? "7d";
 const jwtCookieName = process.env.JWT_COOKIE_NAME ?? "earnify_token";
 const webAuthSuccessRedirect = process.env.WEB_AUTH_SUCCESS_REDIRECT;
 
+function parseCookieSameSite(value: string | undefined): "lax" | "strict" | "none" {
+  const normalized = value?.trim().toLowerCase();
+
+  if (normalized === "strict" || normalized === "none") {
+    return normalized;
+  }
+
+  return "lax";
+}
+
+function parseCookieSecure(value: string | undefined) {
+  if (value === undefined) {
+    return process.env.NODE_ENV === "production";
+  }
+
+  return value.trim().toLowerCase() === "true";
+}
+
 function issueJwt(user: AuthUser) {
   if (!jwtSecret) {
     throw new Error("JWT_SECRET is not configured");
@@ -40,8 +58,8 @@ function issueJwt(user: AuthUser) {
 function getCookieOptions() {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
+    secure: parseCookieSecure(process.env.AUTH_COOKIE_SECURE),
+    sameSite: parseCookieSameSite(process.env.AUTH_COOKIE_SAME_SITE),
     path: "/"
   };
 }

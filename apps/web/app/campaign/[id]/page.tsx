@@ -9,6 +9,7 @@ import { io, type Socket } from "socket.io-client";
 
 import { BudgetBar } from "../../../components/BudgetBar";
 import { EmptyState } from "../../../components/EmptyState";
+import { ErrorBoundary } from "../../../components/ErrorBoundary";
 import { Leaderboard } from "../../../components/Leaderboard";
 import { Skeleton } from "../../../components/Skeleton";
 import { StatusBadge } from "../../../components/StatusBadge";
@@ -102,6 +103,28 @@ function getPayoutStatusStyle(status: PayoutStatus) {
   };
 }
 
+function CampaignNotFoundFallback({ message = "Campaign not found" }: { message?: string }) {
+  return (
+    <main className="min-h-screen px-4 py-8 sm:px-6 md:py-12 lg:px-10">
+      <section className="mx-auto w-full max-w-3xl rounded-xl border border-border bg-surface p-8 text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">404</p>
+        <h1 className="mt-3 text-2xl font-semibold text-secondary">Campaign unavailable</h1>
+        <p className="mt-2 text-sm text-muted">{message}</p>
+      </section>
+    </main>
+  );
+}
+
+function LeaderboardFallback() {
+  return (
+    <div className="rounded-md border border-border bg-background p-4 text-sm text-danger">Leaderboard temporarily unavailable</div>
+  );
+}
+
+function PostSubmissionFallback() {
+  return <div className="rounded-md border border-border bg-background p-4 text-sm text-danger">Try again</div>;
+}
+
 function CampaignDetailsPage() {
   const { user } = useAuth();
   const { pushToast } = useToast();
@@ -114,6 +137,7 @@ function CampaignDetailsPage() {
   const [loadingCampaign, setLoadingCampaign] = useState(true);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [campaignMissing, setCampaignMissing] = useState(false);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("leaderboard");
   const [isLiveConnected, setIsLiveConnected] = useState(false);
@@ -140,6 +164,7 @@ function CampaignDetailsPage() {
       setLoadingCampaign(true);
       setLoadingLeaderboard(true);
       setError(null);
+      setCampaignMissing(false);
 
       try {
         const [campaignResponse, leaderboardResponse] = await Promise.all([
@@ -157,7 +182,10 @@ function CampaignDetailsPage() {
         const leaderboardPayload = (await leaderboardResponse.json()) as ApiResponse<LeaderboardEntry[]>;
 
         if (!campaignResponse.ok || !campaignPayload.success || !campaignPayload.data) {
-          setError(campaignPayload.error ?? "Unable to load campaign");
+          const errorMessage = campaignPayload.error ?? "Unable to load campaign";
+          setCampaign(null);
+          setError(errorMessage);
+          setCampaignMissing(campaignResponse.status === 404 || errorMessage.toLowerCase().includes("not found"));
           return;
         }
 
@@ -167,7 +195,9 @@ function CampaignDetailsPage() {
           setLeaderboard(leaderboardPayload.data);
         }
       } catch {
+        setCampaign(null);
         setError("Unable to load campaign");
+        setCampaignMissing(false);
       } finally {
         setLoadingCampaign(false);
         setLoadingLeaderboard(false);
@@ -463,16 +493,17 @@ function CampaignDetailsPage() {
   }
 
   if (error || !campaign) {
-    return (
-      <main className="min-h-screen px-4 py-6 sm:px-6 md:py-8 lg:px-10">
-        <p className="text-sm text-danger">{error ?? "Campaign not found"}</p>
-      </main>
-    );
+    if (campaignMissing || !campaign) {
+      return <CampaignNotFoundFallback message={error ?? "Campaign not found"} />;
+    }
+
+    return <CampaignNotFoundFallback message={error ?? "Unable to load campaign"} />;
   }
 
   return (
-    <main className="min-h-screen px-4 py-6 sm:px-6 md:py-8 lg:px-10">
-      <section className="mx-auto w-full max-w-6xl space-y-6 lg:space-y-8">
+    <ErrorBoundary fallback={<CampaignNotFoundFallback />} resetKey={campaignId}>
+      <main className="min-h-screen px-4 py-6 sm:px-6 md:py-8 lg:px-10">
+        <section className="mx-auto w-full max-w-6xl space-y-6 lg:space-y-8">
         <header
           className="space-y-5 rounded-lg border border-border p-5 sm:p-6"
           style={{
@@ -667,18 +698,21 @@ function CampaignDetailsPage() {
           </button>
         </div>
 
-        {activeTab === "leaderboard" ? (
-          <section className="space-y-4 rounded-lg border border-border bg-surface p-5">
-            <Leaderboard
-              campaignId={campaignId}
-              initialEntries={leaderboard}
-              onConnectionChange={setIsLiveConnected}
-              isLoading={loadingLeaderboard}
-            />
-          </section>
-        ) : (
-          <section className="rounded-lg border border-border bg-surface p-5">
-            <form className="space-y-4" onSubmit={handleSubmitPost}>
+          {activeTab === "leaderboard" ? (
+            <section className="space-y-4 rounded-lg border border-border bg-surface p-5">
+              <ErrorBoundary fallback={<LeaderboardFallback />} resetKey={`${campaignId}-leaderboard`}>
+                <Leaderboard
+                  campaignId={campaignId}
+                  initialEntries={leaderboard}
+                  onConnectionChange={setIsLiveConnected}
+                  isLoading={loadingLeaderboard}
+                />
+              </ErrorBoundary>
+            </section>
+          ) : (
+            <section className="rounded-lg border border-border bg-surface p-5">
+              <ErrorBoundary fallback={<PostSubmissionFallback />} resetKey={`${campaignId}-submit`}>
+                <form className="space-y-4" onSubmit={handleSubmitPost}>
               <div className="space-y-2">
                 <label htmlFor="post-url" className="text-sm font-medium text-secondary">
                   Post URL
@@ -722,33 +756,35 @@ function CampaignDetailsPage() {
               >
                 {submissionPhase === "submitting" ? "Submitting..." : "Submit for Review"}
               </button>
-            </form>
+                </form>
 
-            {submissionPhase === "pending" ? (
-              <p className="mt-4 inline-flex items-center gap-2 text-sm text-muted">
-                <span
-                  aria-hidden
-                  className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-muted border-t-primary"
-                />
-                Verifying your post...
-              </p>
-            ) : null}
+                {submissionPhase === "pending" ? (
+                  <p className="mt-4 inline-flex items-center gap-2 text-sm text-muted">
+                    <span
+                      aria-hidden
+                      className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-muted border-t-primary"
+                    />
+                    Verifying your post...
+                  </p>
+                ) : null}
 
-            {submissionPhase === "verified" ? (
-              <p className="mt-4 text-sm text-success">Post verified! You&apos;re on the leaderboard.</p>
-            ) : null}
+                {submissionPhase === "verified" ? (
+                  <p className="mt-4 text-sm text-success">Post verified! You&apos;re on the leaderboard.</p>
+                ) : null}
 
-            {submissionPhase === "rejected" ? (
-              <p className="mt-4 text-sm text-danger">Post rejected: {rejectionReason ?? "Verification failed"}</p>
-            ) : null}
+                {submissionPhase === "rejected" ? (
+                  <p className="mt-4 text-sm text-danger">Post rejected: {rejectionReason ?? "Verification failed"}</p>
+                ) : null}
 
-            {submissionPhase === "error" && submissionMessage ? (
-              <p className="mt-4 text-sm text-danger">{submissionMessage}</p>
-            ) : null}
-          </section>
-        )}
-      </section>
-    </main>
+                {submissionPhase === "error" && submissionMessage ? (
+                  <p className="mt-4 text-sm text-danger">{submissionMessage}</p>
+                ) : null}
+              </ErrorBoundary>
+            </section>
+          )}
+        </section>
+      </main>
+    </ErrorBoundary>
   );
 }
 

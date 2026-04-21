@@ -9,10 +9,10 @@ function getCampaignRoomKey(campaignId: string) {
   return `campaign:${campaignId}`;
 }
 
-function initWebsocket(server: HttpServer, webOrigin: string) {
+function initWebsocket(server: HttpServer, webOrigins: string[]) {
   io = new Server(server, {
     cors: {
-      origin: webOrigin,
+      origin: webOrigins,
       credentials: true
     }
   });

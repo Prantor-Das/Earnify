@@ -13,6 +13,7 @@
   "dependencies": {
     "@earnify/db": "workspace:*",
     "@earnify/shared": "workspace:*",
+    "@prisma/adapter-pg": "^7.7.0",
     "@stellar/stellar-sdk": "^13.3.0",
     "axios": "^1.12.2",
     "cheerio": "^1.1.2",
@@ -21,11 +22,12 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "ioredis": "^5.8.2",
-    "node-cron": "^4.2.1",
     "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.2.1",
     "openai": "^5.20.2",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
+    "pg": "^8.20.0",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
@@ -35,6 +37,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/passport": "^1.0.17",
     "@types/passport-google-oauth20": "^2.0.17",
+    "@types/pg": "^8.20.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.4"
   }

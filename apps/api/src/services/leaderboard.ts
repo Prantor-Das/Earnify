@@ -2,7 +2,7 @@ import { prisma } from "@earnify/db";
 import type { LeaderboardEntry } from "@earnify/shared";
 import Redis from "ioredis";
 
-const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
+const redisUrl = process.env.REDIS_URL ?? process.env.UPSTASH_REDIS_URL ?? "redis://localhost:6379";
 const redis = new Redis(redisUrl);
 
 function getLeaderboardKey(campaignId: string) {

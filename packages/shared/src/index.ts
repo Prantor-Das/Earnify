@@ -8,6 +8,7 @@ export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
+  code?: string;
 }
 
 export interface AuthUser {
@@ -47,4 +48,3 @@ export interface LeaderboardEntry {
   postCount: number;
   change: "up" | "down" | "same";
 }
-

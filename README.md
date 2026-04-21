@@ -1,0 +1,92 @@
+# Earnify
+
+## 1) What is Earnify
+Earnify is a creator marketing platform where founders launch campaigns and creators compete for budget based on verified social performance. Every verified post is scored using engagement plus authenticity signals, and the leaderboard updates live across connected clients. Once a campaign wraps, payouts can be triggered on Stellar testnet with visible transaction links for demo transparency.
+
+## 2) Architecture diagram
+```text
+┌───────────────────────────────────────────────┐
+│                 Next.js Web App              │
+│  - Login, dashboard, campaign, leaderboard   │
+└───────────────────┬───────────────────────────┘
+                    │ HTTP + WebSocket
+┌───────────────────▼───────────────────────────┐
+│                Express API Server             │
+│  - Auth, campaigns, posts, admin, payouts    │
+│  - Verification + scoring + cron refresh     │
+└──────────────┬───────────────────┬────────────┘
+               │                   │
+     ┌─────────▼─────────┐   ┌────▼─────────────┐
+     │   PostgreSQL      │   │      Redis        │
+     │ - Users/Campaigns │   │ - Live leaderboard│
+     │ - Posts/Scores    │   │ - Rank snapshots  │
+     │ - Payout records  │   └───────────────────┘
+     └─────────┬─────────┘
+               │
+     ┌─────────▼─────────┐
+     │  Stellar Testnet  │
+     │ - Payout tx flow  │
+     └───────────────────┘
+```
+
+## 3) Quick start
+```bash
+./scripts/setup.sh
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+## 4) Demo walkthrough steps
+1. Login as Alice (FOUNDER) → create a campaign, note wallet address
+2. Open 3 browser tabs, login as Bob, Priya, Jae-won
+3. All 3 submit different post URLs to the campaign
+4. Watch verification spinner → posts go VERIFIED
+5. Hit POST /api/admin/trigger-engagement-refresh
+6. Watch the leaderboard update live in all tabs simultaneously
+7. As Alice, click "Trigger Payout" → watch tx cards appear
+8. Show Stellar testnet explorer link for any tx
+
+Every step above can still be demonstrated using seeded campaigns, seeded verified posts, seeded engagement snapshots, and a pre-populated leaderboard.
+
+## 5) Theme customization
+Edit apps/web/styles/theme.ts to change the entire UI
+
+## 6) Tech stack
+- Next.js 16 + React 19 (frontend)
+- Express 5 + Socket.IO (API + realtime)
+- PostgreSQL + Prisma ORM (primary data)
+- Redis (leaderboard state)
+- Stellar testnet SDK (payout simulation)
+- pnpm workspaces + TypeScript (monorepo/tooling)
+
+## 7) Free deployment (Vercel + Render + Neon + Upstash)
+1. Database (Neon)
+   - Create a Neon project and copy its pooled `DATABASE_URL`.
+   - Set `DIRECT_URL` to the direct Neon connection string.
+
+2. Redis (Upstash)
+   - Create a Redis database and copy the TLS Redis URL (`rediss://...`).
+   - Set `REDIS_URL` to this value.
+
+3. Backend (Render Free Web Service)
+   - Create a Web Service from this repo.
+   - Build command: `pnpm install --frozen-lockfile && pnpm --filter @earnify/db db:generate && pnpm --filter @earnify/db exec prisma migrate deploy --config prisma.config.ts`
+   - Start command: `pnpm --filter @earnify/api start`
+   - Set environment variables from `.env.example` (production values), including `DATABASE_URL`, `DIRECT_URL`, `REDIS_URL`, `JWT_SECRET`, `OPENAI_API_KEY`, OAuth values, and `STELLAR_ENCRYPTION_KEY`.
+
+4. Frontend (Vercel)
+   - Import the same repo into Vercel.
+   - Set root to `apps/web`.
+   - Set `NEXT_PUBLIC_API_BASE_URL` to your Render backend URL.
+   - Set `NEXT_PUBLIC_API_URL` to `<backend>/api`.
+
+5. Cross-domain auth cookie settings (required)
+   - On backend env set:
+   - `AUTH_COOKIE_SAME_SITE=none`
+   - `AUTH_COOKIE_SECURE=true`
+   - `CORS_ORIGINS=https://your-vercel-domain.vercel.app`
+   - `WEB_AUTH_SUCCESS_REDIRECT=https://your-vercel-domain.vercel.app/dashboard`
+
+6. Google OAuth callback
+   - Set `GOOGLE_CALLBACK_URL` to `https://<your-render-backend>/api/auth/google/callback`.
+   - Add this exact URL in Google Cloud OAuth allowed redirect URIs.
