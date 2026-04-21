@@ -17,6 +17,7 @@ import { adminRouter } from "./routes/admin";
 import { campaignsRouter } from "./routes/campaigns";
 import { dashboardRouter } from "./routes/dashboard";
 import { postsRouter } from "./routes/posts";
+import { usersRouter } from "./routes/users";
 import { sendSuccess } from "./utils/api-response";
 import { initWebsocket } from "./websocket";
 
@@ -39,6 +40,7 @@ app.use("/api/admin", adminRouter);
 app.use("/api/campaigns", campaignsRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/posts", postsRouter);
+app.use("/api/users", usersRouter);
 
 app.get("/api/health", async (_request, response) => {
   let campaigns = 0;

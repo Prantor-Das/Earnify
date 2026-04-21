@@ -1,4 +1,4 @@
-import { createCipheriv, createHash, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 import * as StellarSdk from "@stellar/stellar-sdk";
 
@@ -51,4 +51,29 @@ function encryptSecretKey(secretKey: string): string {
   return `${iv.toString("base64")}:${encrypted.toString("base64")}:${authTag.toString("base64")}`;
 }
 
-export { createCampaignWallet, encryptSecretKey, getWalletBalance };
+function decryptSecretKey(payload: string): string {
+  const encryptionKey = process.env.STELLAR_ENCRYPTION_KEY;
+
+  if (!encryptionKey) {
+    throw new Error("STELLAR_ENCRYPTION_KEY is not configured");
+  }
+
+  const [ivEncoded, encryptedEncoded, authTagEncoded] = payload.split(":");
+
+  if (!ivEncoded || !encryptedEncoded || !authTagEncoded) {
+    throw new Error("Invalid encrypted secret key format");
+  }
+
+  const key = createHash("sha256").update(encryptionKey).digest();
+  const iv = Buffer.from(ivEncoded, "base64");
+  const encrypted = Buffer.from(encryptedEncoded, "base64");
+  const authTag = Buffer.from(authTagEncoded, "base64");
+
+  const decipher = createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(authTag);
+  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+
+  return decrypted.toString("utf8");
+}
+
+export { createCampaignWallet, decryptSecretKey, encryptSecretKey, getWalletBalance };

@@ -5,9 +5,11 @@ import type { FormEvent } from "react";
 
 import type { ApiResponse, CampaignStatus, LeaderboardEntry, PostStatus, SocialPlatform } from "@earnify/shared";
 import { useParams } from "next/navigation";
+import { io, type Socket } from "socket.io-client";
 
 import { BudgetBar } from "../../../components/BudgetBar";
 import { Leaderboard } from "../../../components/Leaderboard";
+import { useAuth } from "../../../components/auth/useAuth";
 import { withAuth } from "../../../components/auth/withAuth";
 import { StatusBadge } from "../../../components/StatusBadge";
 
@@ -15,6 +17,7 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:400
 
 type CampaignDetails = {
   id: string;
+  founderId: string;
   title: string;
   description: string;
   totalBudget: number;
@@ -48,7 +51,57 @@ type PostStatusResponse = {
 
 type SubmissionPhase = "idle" | "submitting" | "pending" | "verified" | "rejected" | "error";
 
+type PayoutStatus = "PENDING" | "COMPLETED" | "FAILED";
+
+type CampaignPayoutEntry = {
+  id: string;
+  campaignId: string;
+  userId: string;
+  userName: string;
+  amount: number;
+  status: PayoutStatus;
+  stellarTxHash: string | null;
+  stellarTxUrl: string | null;
+  createdAt: string;
+};
+
+function getApiBaseUrl() {
+  const configuredUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+
+  try {
+    const parsed = new URL(configuredUrl);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return "http://localhost:4000";
+  }
+}
+
+function getPayoutStatusStyle(status: PayoutStatus) {
+  if (status === "COMPLETED") {
+    return {
+      color: "var(--color-success)",
+      background: "color-mix(in srgb, var(--color-success) 16%, var(--color-surface))",
+      borderColor: "color-mix(in srgb, var(--color-success) 42%, var(--color-border))"
+    };
+  }
+
+  if (status === "FAILED") {
+    return {
+      color: "var(--color-danger)",
+      background: "color-mix(in srgb, var(--color-danger) 14%, var(--color-surface))",
+      borderColor: "color-mix(in srgb, var(--color-danger) 38%, var(--color-border))"
+    };
+  }
+
+  return {
+    color: "var(--color-accent)",
+    background: "color-mix(in srgb, var(--color-accent) 18%, var(--color-surface))",
+    borderColor: "color-mix(in srgb, var(--color-accent) 42%, var(--color-border))"
+  };
+}
+
 function CampaignDetailsPage() {
+  const { user } = useAuth();
   const params = useParams<{ id: string }>();
   const campaignId = params.id;
 
@@ -65,6 +118,11 @@ function CampaignDetailsPage() {
   const [submittedPostId, setSubmittedPostId] = useState<string | null>(null);
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  const [payouts, setPayouts] = useState<CampaignPayoutEntry[]>([]);
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payoutError, setPayoutError] = useState<string | null>(null);
+  const [showPayoutConfirm, setShowPayoutConfirm] = useState(false);
+  const [triggeringPayout, setTriggeringPayout] = useState(false);
 
   useEffect(() => {
     if (!campaignId) {
@@ -116,6 +174,127 @@ function CampaignDetailsPage() {
 
     return `${campaign.stats.topScorer.name} (${campaign.stats.topScorer.score.toFixed(2)} pts)`;
   }, [campaign?.stats.topScorer]);
+
+  const isFounderView = user?.role === "FOUNDER" && campaign?.founderId === user.id;
+
+  useEffect(() => {
+    if (!campaignId || !isFounderView) {
+      setPayouts([]);
+      return;
+    }
+
+    const fetchPayouts = async () => {
+      setPayoutLoading(true);
+      setPayoutError(null);
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/campaigns/${campaignId}/payouts`, {
+          method: "GET",
+          credentials: "include"
+        });
+
+        const payload = (await response.json()) as ApiResponse<CampaignPayoutEntry[]>;
+
+        if (!response.ok || !payload.success || !payload.data) {
+          setPayoutError(payload.error ?? "Failed to load payouts");
+          return;
+        }
+
+        setPayouts(payload.data);
+      } catch {
+        setPayoutError("Failed to load payouts");
+      } finally {
+        setPayoutLoading(false);
+      }
+    };
+
+    void fetchPayouts();
+  }, [campaignId, isFounderView]);
+
+  useEffect(() => {
+    if (!campaignId || !isFounderView) {
+      return;
+    }
+
+    const socket: Socket = io(getApiBaseUrl(), {
+      transports: ["websocket"],
+      withCredentials: true
+    });
+
+    socket.on("connect", () => {
+      socket.emit("join-campaign", { campaignId });
+    });
+
+    socket.on(
+      "payout-update",
+      (
+        payload:
+          | {
+              campaignId?: string;
+              payout?: Omit<CampaignPayoutEntry, "id" | "createdAt" | "stellarTxUrl">;
+            }
+          | undefined
+      ) => {
+        if (!payload?.campaignId || payload.campaignId !== campaignId || !payload.payout) {
+          return;
+        }
+
+        const payoutEvent = payload.payout;
+
+        const txUrl = payoutEvent.stellarTxHash
+          ? `https://testnet.stellar.expert/explorer/testnet/tx/${payoutEvent.stellarTxHash}`
+          : null;
+
+        setPayouts((previous) => {
+          const transientEntry: CampaignPayoutEntry = {
+            id: `${payoutEvent.userId}-${Date.now()}`,
+            campaignId,
+            userId: payoutEvent.userId,
+            userName: payoutEvent.userName,
+            amount: payoutEvent.amount,
+            status: payoutEvent.status,
+            stellarTxHash: payoutEvent.stellarTxHash ?? null,
+            stellarTxUrl: txUrl,
+            createdAt: new Date().toISOString()
+          };
+
+          return [transientEntry, ...previous].slice(0, 40);
+        });
+      }
+    );
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [campaignId, isFounderView]);
+
+  const handleTriggerPayout = async () => {
+    if (!campaignId) {
+      return;
+    }
+
+    setTriggeringPayout(true);
+    setPayoutError(null);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/campaigns/${campaignId}/payout`, {
+        method: "POST",
+        credentials: "include"
+      });
+
+      const payload = (await response.json()) as ApiResponse<{ payouts?: CampaignPayoutEntry[] }>;
+
+      if (!response.ok || !payload.success) {
+        setPayoutError(payload.error ?? "Failed to trigger payout");
+        return;
+      }
+    } catch {
+      setPayoutError("Failed to trigger payout");
+    } finally {
+      setTriggeringPayout(false);
+      setShowPayoutConfirm(false);
+    }
+  };
 
   const handleSubmitPost = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -302,6 +481,111 @@ function CampaignDetailsPage() {
             </p>
           </div>
         </header>
+
+        {isFounderView ? (
+          <section className="space-y-4 rounded-lg border border-border bg-surface p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">Founder Payout Console</p>
+                <p className="mt-1 text-sm text-muted">Distribute campaign budget on Stellar testnet and monitor transaction flow.</p>
+              </div>
+
+              {campaign.status === "ACTIVE" ? (
+                <button
+                  type="button"
+                  onClick={() => setShowPayoutConfirm(true)}
+                  disabled={triggeringPayout}
+                  className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-secondary disabled:opacity-60"
+                  style={{
+                    background:
+                      "linear-gradient(120deg, color-mix(in srgb, var(--color-accent) 24%, white), var(--color-surface))"
+                  }}
+                >
+                  {triggeringPayout ? "Triggering..." : "Trigger Payout"}
+                </button>
+              ) : null}
+            </div>
+
+            {payoutError ? <p className="text-sm text-danger">{payoutError}</p> : null}
+
+            {showPayoutConfirm ? (
+              <div className="rounded-md border border-border p-4" style={{ backgroundColor: "var(--color-background)" }}>
+                <p className="text-sm text-secondary">
+                  This will distribute <span className="font-semibold">{campaign.remainingBudget.toFixed(2)} XLM</span> to{" "}
+                  <span className="font-semibold">{leaderboard.length}</span> creators.
+                </p>
+                <div className="mt-3 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleTriggerPayout}
+                    disabled={triggeringPayout}
+                    className="rounded-md border border-border px-3 py-1.5 text-sm font-semibold text-secondary"
+                    style={{
+                      background:
+                        "linear-gradient(120deg, color-mix(in srgb, var(--color-secondary) 18%, white), var(--color-surface))"
+                    }}
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPayoutConfirm(false)}
+                    className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-semibold text-muted"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-secondary">Live tx feed</h3>
+
+              {payoutLoading ? <p className="text-sm text-muted">Loading payout feed...</p> : null}
+
+              {!payoutLoading && payouts.length === 0 ? (
+                <p className="text-sm text-muted">No payout transactions yet.</p>
+              ) : null}
+
+              <ul className="space-y-3">
+                {payouts.map((payout) => (
+                  <li
+                    key={payout.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3"
+                    style={{ backgroundColor: "color-mix(in srgb, var(--color-surface) 88%, var(--color-background))" }}
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-secondary">{payout.userName}</p>
+                      <p className="text-xs text-muted">{payout.amount.toFixed(2)} XLM</p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="rounded-full border px-2 py-1 text-xs font-semibold"
+                        style={getPayoutStatusStyle(payout.status)}
+                      >
+                        {payout.status}
+                      </span>
+
+                      {payout.stellarTxUrl ? (
+                        <a
+                          href={payout.stellarTxUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-semibold text-secondary underline"
+                        >
+                          {payout.stellarTxHash}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted">No tx hash</span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        ) : null}
 
         <div className="flex gap-3">
           <button

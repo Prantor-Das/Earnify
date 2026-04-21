@@ -4,6 +4,7 @@ import { CampaignStatus, prisma } from "@earnify/db";
 
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { getTopN } from "../services/leaderboard";
+import { executeCampaignPayouts } from "../services/payoutService";
 import { createCampaignWallet, encryptSecretKey } from "../services/stellar";
 import { sendError, sendSuccess } from "../utils/api-response";
 
@@ -289,6 +290,115 @@ campaignsRouter.get("/:id/leaderboard", async (request, response) => {
   const leaderboard = await getTopN(campaign.id, 10);
 
   sendSuccess(response, leaderboard);
+});
+
+campaignsRouter.post("/:id/payout", requireAuth, requireRole("FOUNDER"), async (request, response) => {
+  const campaignId = parseIdParam(request.params.id);
+
+  if (!campaignId) {
+    sendError(response, "Campaign id is required", 400);
+    return;
+  }
+
+  if (!request.user) {
+    sendError(response, "Unauthorized", 401);
+    return;
+  }
+
+  const campaign = await prisma.campaign.findUnique({
+    where: {
+      id: campaignId
+    },
+    select: {
+      id: true,
+      founderId: true
+    }
+  });
+
+  if (!campaign) {
+    sendError(response, "Campaign not found", 404);
+    return;
+  }
+
+  if (campaign.founderId !== request.user.id) {
+    sendError(response, "Forbidden", 403);
+    return;
+  }
+
+  try {
+    const result = await executeCampaignPayouts(campaign.id, { allowManualTrigger: true });
+    sendSuccess(response, result);
+  } catch (error) {
+    sendError(response, error instanceof Error ? error.message : "Failed to execute payout", 400);
+  }
+});
+
+campaignsRouter.get("/:id/payouts", requireAuth, async (request, response) => {
+  const campaignId = parseIdParam(request.params.id);
+
+  if (!campaignId) {
+    sendError(response, "Campaign id is required", 400);
+    return;
+  }
+
+  if (!request.user) {
+    sendError(response, "Unauthorized", 401);
+    return;
+  }
+
+  const campaign = await prisma.campaign.findUnique({
+    where: {
+      id: campaignId
+    },
+    select: {
+      id: true,
+      founderId: true
+    }
+  });
+
+  if (!campaign) {
+    sendError(response, "Campaign not found", 404);
+    return;
+  }
+
+  if (campaign.founderId !== request.user.id) {
+    sendError(response, "Forbidden", 403);
+    return;
+  }
+
+  const payouts = await prisma.payout.findMany({
+    where: {
+      campaignId: campaign.id
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true
+        }
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
+
+  sendSuccess(
+    response,
+    payouts.map((payout) => ({
+      id: payout.id,
+      campaignId: payout.campaignId,
+      userId: payout.userId,
+      userName: payout.user.name,
+      amount: toNumber(payout.amount),
+      status: payout.status,
+      stellarTxHash: payout.stellarTxHash,
+      stellarTxUrl: payout.stellarTxHash
+        ? `https://testnet.stellar.expert/explorer/testnet/tx/${payout.stellarTxHash}`
+        : null,
+      createdAt: payout.createdAt.toISOString()
+    }))
+  );
 });
 
 export { campaignsRouter };

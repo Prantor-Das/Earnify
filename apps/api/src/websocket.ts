@@ -41,4 +41,24 @@ function emitLeaderboardUpdate(campaignId: string, leaderboard: LeaderboardEntry
   });
 }
 
-export { emitLeaderboardUpdate, initWebsocket };
+function emitPayoutUpdate(
+  campaignId: string,
+  payout: {
+    userId: string;
+    userName: string;
+    amount: number;
+    status: "PENDING" | "COMPLETED" | "FAILED";
+    stellarTxHash?: string | null;
+  }
+) {
+  if (!io) {
+    return;
+  }
+
+  io.to(getCampaignRoomKey(campaignId)).emit("payout-update", {
+    campaignId,
+    payout
+  });
+}
+
+export { emitLeaderboardUpdate, emitPayoutUpdate, initWebsocket };
