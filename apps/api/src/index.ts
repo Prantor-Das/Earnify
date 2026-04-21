@@ -12,7 +12,10 @@ import type { ApiHealthResponse } from "@earnify/shared";
 
 import { authRouter } from "./auth/routes";
 import "./auth/passport";
+import { startEngagementCron } from "./jobs/engagementCron";
+import { adminRouter } from "./routes/admin";
 import { campaignsRouter } from "./routes/campaigns";
+import { dashboardRouter } from "./routes/dashboard";
 import { postsRouter } from "./routes/posts";
 import { sendSuccess } from "./utils/api-response";
 import { initWebsocket } from "./websocket";
@@ -32,7 +35,9 @@ app.use(cookieParser());
 app.use(passport.initialize());
 
 app.use("/api/auth", authRouter);
+app.use("/api/admin", adminRouter);
 app.use("/api/campaigns", campaignsRouter);
+app.use("/api/dashboard", dashboardRouter);
 app.use("/api/posts", postsRouter);
 
 app.get("/api/health", async (_request, response) => {
@@ -57,6 +62,7 @@ app.get("/api/health", async (_request, response) => {
 const server = createServer(app);
 
 initWebsocket(server, webOrigin);
+startEngagementCron();
 
 server.listen(port, () => {
   console.log(`Earnify API listening on http://localhost:${port}`);
