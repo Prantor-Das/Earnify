@@ -8,10 +8,13 @@ import { useParams } from "next/navigation";
 import { io, type Socket } from "socket.io-client";
 
 import { BudgetBar } from "../../../components/BudgetBar";
+import { EmptyState } from "../../../components/EmptyState";
 import { Leaderboard } from "../../../components/Leaderboard";
+import { Skeleton } from "../../../components/Skeleton";
+import { StatusBadge } from "../../../components/StatusBadge";
 import { useAuth } from "../../../components/auth/useAuth";
 import { withAuth } from "../../../components/auth/withAuth";
-import { StatusBadge } from "../../../components/StatusBadge";
+import { useToast } from "../../../components/toast/ToastProvider";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
@@ -46,7 +49,6 @@ type PostStatusResponse = {
   postId: string;
   status: PostStatus;
   rejectionReason?: string | null;
-  authenticityScore?: number | null;
 };
 
 type SubmissionPhase = "idle" | "submitting" | "pending" | "verified" | "rejected" | "error";
@@ -102,13 +104,17 @@ function getPayoutStatusStyle(status: PayoutStatus) {
 
 function CampaignDetailsPage() {
   const { user } = useAuth();
+  const { pushToast } = useToast();
   const params = useParams<{ id: string }>();
   const campaignId = params.id;
 
   const [campaign, setCampaign] = useState<CampaignDetails | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const [loadingCampaign, setLoadingCampaign] = useState(true);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState<ActiveTab>("leaderboard");
   const [isLiveConnected, setIsLiveConnected] = useState(false);
 
@@ -118,6 +124,7 @@ function CampaignDetailsPage() {
   const [submittedPostId, setSubmittedPostId] = useState<string | null>(null);
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+
   const [payouts, setPayouts] = useState<CampaignPayoutEntry[]>([]);
   const [payoutLoading, setPayoutLoading] = useState(false);
   const [payoutError, setPayoutError] = useState<string | null>(null);
@@ -129,8 +136,10 @@ function CampaignDetailsPage() {
       return;
     }
 
-    const fetchCampaign = async () => {
-      setLoading(true);
+    const fetchCampaignAndLeaderboard = async () => {
+      setLoadingCampaign(true);
+      setLoadingLeaderboard(true);
+      setError(null);
 
       try {
         const [campaignResponse, leaderboardResponse] = await Promise.all([
@@ -160,11 +169,12 @@ function CampaignDetailsPage() {
       } catch {
         setError("Unable to load campaign");
       } finally {
-        setLoading(false);
+        setLoadingCampaign(false);
+        setLoadingLeaderboard(false);
       }
     };
 
-    void fetchCampaign();
+    void fetchCampaignAndLeaderboard();
   }, [campaignId]);
 
   const topScorerText = useMemo(() => {
@@ -288,6 +298,12 @@ function CampaignDetailsPage() {
         setPayoutError(payload.error ?? "Failed to trigger payout");
         return;
       }
+
+      pushToast({
+        type: "info",
+        title: "Payout started",
+        message: "Live transaction cards will appear as distributions are processed."
+      });
     } catch {
       setPayoutError("Failed to trigger payout");
     } finally {
@@ -334,6 +350,12 @@ function CampaignDetailsPage() {
         setSubmittedPostId(payload.data.postId);
         setSubmissionPhase("pending");
         setSubmissionMessage("Verifying your post...");
+
+        pushToast({
+          type: "info",
+          title: "Post submitted",
+          message: "Verification has started."
+        });
       } catch {
         setSubmissionPhase("error");
         setSubmissionMessage("Failed to submit post");
@@ -380,6 +402,11 @@ function CampaignDetailsPage() {
             setSubmissionPhase("verified");
             setSubmissionMessage("Post verified! You're on the leaderboard.");
             setPostUrl("");
+            pushToast({
+              type: "success",
+              title: "Post verified",
+              message: "Your content is now counted in rankings."
+            });
           }
           return;
         }
@@ -388,6 +415,11 @@ function CampaignDetailsPage() {
           if (!isCancelled) {
             setSubmissionPhase("rejected");
             setRejectionReason(payload.data.rejectionReason ?? "Post verification failed");
+            pushToast({
+              type: "warning",
+              title: "Post rejected",
+              message: payload.data.rejectionReason ?? "Please review campaign requirements and retry."
+            });
           }
           return;
         }
@@ -416,36 +448,40 @@ function CampaignDetailsPage() {
     return () => {
       isCancelled = true;
     };
-  }, [submissionPhase, submittedPostId]);
+  }, [submissionPhase, submittedPostId, pushToast]);
 
-  if (loading) {
+  if (loadingCampaign) {
     return (
-      <main className="min-h-screen px-4 py-10 sm:px-6 lg:px-10">
-        <p className="text-sm text-muted">Loading campaign...</p>
+      <main className="min-h-screen px-4 py-6 sm:px-6 md:py-8 lg:px-10">
+        <section className="mx-auto w-full max-w-6xl space-y-4">
+          <Skeleton className="h-44 w-full rounded-lg" />
+          <Skeleton className="h-12 w-full rounded-lg" />
+          <Skeleton className="h-52 w-full rounded-lg" />
+        </section>
       </main>
     );
   }
 
   if (error || !campaign) {
     return (
-      <main className="min-h-screen px-4 py-10 sm:px-6 lg:px-10">
+      <main className="min-h-screen px-4 py-6 sm:px-6 md:py-8 lg:px-10">
         <p className="text-sm text-danger">{error ?? "Campaign not found"}</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen px-4 py-10 sm:px-6 lg:px-10">
-      <section className="mx-auto w-full max-w-5xl space-y-8">
+    <main className="min-h-screen px-4 py-6 sm:px-6 md:py-8 lg:px-10">
+      <section className="mx-auto w-full max-w-6xl space-y-6 lg:space-y-8">
         <header
-          className="space-y-5 rounded-lg border border-border p-6"
+          className="space-y-5 rounded-lg border border-border p-5 sm:p-6"
           style={{
             background: "linear-gradient(130deg, color-mix(in srgb, var(--color-secondary) 10%, white), var(--color-surface))"
           }}
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold text-secondary sm:text-3xl">{campaign.title}</h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-xl font-semibold text-secondary sm:text-2xl lg:text-3xl">{campaign.title}</h1>
 
               <span
                 className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-1 text-xs font-semibold"
@@ -472,7 +508,7 @@ function CampaignDetailsPage() {
 
           <BudgetBar totalBudget={campaign.totalBudget} remainingBudget={campaign.remainingBudget} />
 
-          <div className="flex flex-wrap gap-5 text-sm text-muted">
+          <div className="grid gap-3 text-sm text-muted sm:grid-cols-2">
             <p>
               Posts tracked: <span className="font-semibold text-secondary">{campaign.stats.postCount}</span>
             </p>
@@ -509,12 +545,12 @@ function CampaignDetailsPage() {
             {payoutError ? <p className="text-sm text-danger">{payoutError}</p> : null}
 
             {showPayoutConfirm ? (
-              <div className="rounded-md border border-border p-4" style={{ backgroundColor: "var(--color-background)" }}>
+              <div className="rounded-md border border-border bg-background p-4">
                 <p className="text-sm text-secondary">
                   This will distribute <span className="font-semibold">{campaign.remainingBudget.toFixed(2)} XLM</span> to{" "}
                   <span className="font-semibold">{leaderboard.length}</span> creators.
                 </p>
-                <div className="mt-3 flex gap-3">
+                <div className="mt-3 flex flex-wrap gap-3">
                   <button
                     type="button"
                     onClick={handleTriggerPayout}
@@ -541,53 +577,65 @@ function CampaignDetailsPage() {
             <div className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-secondary">Live tx feed</h3>
 
-              {payoutLoading ? <p className="text-sm text-muted">Loading payout feed...</p> : null}
-
-              {!payoutLoading && payouts.length === 0 ? (
-                <p className="text-sm text-muted">No payout transactions yet.</p>
+              {payoutLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-14 w-full" />
+                  <Skeleton className="h-14 w-full" />
+                  <Skeleton className="h-14 w-full" />
+                </div>
               ) : null}
 
-              <ul className="space-y-3">
-                {payouts.map((payout) => (
-                  <li
-                    key={payout.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3"
-                    style={{ backgroundColor: "color-mix(in srgb, var(--color-surface) 88%, var(--color-background))" }}
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-secondary">{payout.userName}</p>
-                      <p className="text-xs text-muted">{payout.amount.toFixed(2)} XLM</p>
-                    </div>
+              {!payoutLoading && payouts.length === 0 ? (
+                <EmptyState
+                  variant="payouts"
+                  title="No payouts"
+                  description="Transaction cards will appear here once payout distribution starts."
+                />
+              ) : null}
 
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="rounded-full border px-2 py-1 text-xs font-semibold"
-                        style={getPayoutStatusStyle(payout.status)}
-                      >
-                        {payout.status}
-                      </span>
+              {!payoutLoading && payouts.length > 0 ? (
+                <ul className="space-y-3">
+                  {payouts.map((payout) => (
+                    <li
+                      key={payout.id}
+                      className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-[1fr_auto] sm:items-center"
+                      style={{ backgroundColor: "color-mix(in srgb, var(--color-surface) 88%, var(--color-background))" }}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-secondary">{payout.userName}</p>
+                        <p className="text-xs text-muted">{payout.amount.toFixed(2)} XLM</p>
+                      </div>
 
-                      {payout.stellarTxUrl ? (
-                        <a
-                          href={payout.stellarTxUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs font-semibold text-secondary underline"
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span
+                          className="rounded-full border px-2 py-1 text-xs font-semibold"
+                          style={getPayoutStatusStyle(payout.status)}
                         >
-                          {payout.stellarTxHash}
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted">No tx hash</span>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                          {payout.status}
+                        </span>
+
+                        {payout.stellarTxUrl ? (
+                          <a
+                            href={payout.stellarTxUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="max-w-55 truncate text-xs font-semibold text-secondary underline"
+                          >
+                            {payout.stellarTxHash}
+                          </a>
+                        ) : (
+                          <span className="text-xs text-muted">No tx hash</span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
           </section>
         ) : null}
 
-        <div className="flex gap-3">
+        <div className="grid gap-4 sm:grid-cols-[auto_auto_1fr] sm:items-center">
           <button
             type="button"
             onClick={() => setActiveTab("leaderboard")}
@@ -625,6 +673,7 @@ function CampaignDetailsPage() {
               campaignId={campaignId}
               initialEntries={leaderboard}
               onConnectionChange={setIsLiveConnected}
+              isLoading={loadingLeaderboard}
             />
           </section>
         ) : (

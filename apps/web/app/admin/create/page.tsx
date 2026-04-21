@@ -69,23 +69,24 @@ function AdminCreateCampaignPage() {
   };
 
   return (
-    <main className="min-h-screen px-4 py-10 sm:px-6 lg:px-10">
-      <section
-        className="mx-auto w-full max-w-3xl rounded-lg border border-border p-6 sm:p-8"
-        style={{
-          background: "linear-gradient(140deg, color-mix(in srgb, var(--color-primary) 9%, white), var(--color-surface))",
-          boxShadow: "0 24px 65px color-mix(in srgb, var(--color-primary) 12%, transparent)"
-        }}
-      >
-        <header className="space-y-3">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">Founder Console</p>
-          <h1 className="text-2xl font-semibold text-secondary sm:text-3xl">Create a campaign</h1>
-          <p className="text-sm leading-7 text-muted">
-            A dedicated Stellar testnet wallet is generated and funded on campaign creation.
-          </p>
-        </header>
+    <main className="min-h-screen px-4 py-6 sm:px-6 md:py-8 lg:px-10">
+      <section className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
+        <article
+          className="rounded-lg border border-border p-6 sm:p-8"
+          style={{
+            background: "linear-gradient(140deg, color-mix(in srgb, var(--color-primary) 9%, white), var(--color-surface))",
+            boxShadow: "0 24px 65px color-mix(in srgb, var(--color-primary) 12%, transparent)"
+          }}
+        >
+          <header className="space-y-3">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">Founder Console</p>
+            <h1 className="text-2xl font-semibold text-secondary sm:text-3xl">Create a campaign</h1>
+            <p className="text-sm leading-7 text-muted">
+              A dedicated Stellar testnet wallet is generated and funded on campaign creation.
+            </p>
+          </header>
 
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <label htmlFor="title" className="text-sm font-medium text-secondary">
               Title
@@ -175,16 +176,35 @@ function AdminCreateCampaignPage() {
           >
             {loading ? "Creating..." : "Create Campaign"}
           </button>
-        </form>
+          </form>
 
-        {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
+          {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
 
-        {createdCampaign ? (
-          <div className="mt-5 rounded-md border border-border bg-background p-4">
-            <p className="text-sm font-semibold text-secondary">Campaign created: {createdCampaign.title}</p>
-            <p className="mt-1 break-all text-sm text-muted">Wallet Address: {createdCampaign.walletAddress}</p>
-          </div>
-        ) : null}
+          {createdCampaign ? (
+            <div className="mt-5 rounded-md border border-border bg-background p-4">
+              <p className="text-sm font-semibold text-secondary">Campaign created: {createdCampaign.title}</p>
+              <p className="mt-1 break-all text-sm text-muted">Wallet Address: {createdCampaign.walletAddress}</p>
+            </div>
+          ) : null}
+        </article>
+
+        <aside className="rounded-lg border border-border bg-surface p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-secondary">Launch Checklist</h2>
+          <ul className="mt-3 space-y-3 text-sm text-muted">
+            <li className="rounded-md border border-border bg-background p-3">
+              Pick a short, creator-friendly title and highlight expected tone.
+            </li>
+            <li className="rounded-md border border-border bg-background p-3">
+              Set a realistic budget so rankings translate into meaningful payouts.
+            </li>
+            <li className="rounded-md border border-border bg-background p-3">
+              Choose an end date with enough time for verification and leaderboard growth.
+            </li>
+          </ul>
+          <p className="mt-4 text-xs text-muted">
+            Layout tuned for 375px, 768px, and 1280px screens using responsive grid breakpoints.
+          </p>
+        </aside>
       </section>
     </main>
   );

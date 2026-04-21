@@ -5,10 +5,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { LeaderboardEntry } from "@earnify/shared";
 import { io, type Socket } from "socket.io-client";
 
+import { Badge, resolveBadges } from "./Badge";
+import { EmptyState } from "./EmptyState";
+import { Skeleton } from "./Skeleton";
+
 type LeaderboardProps = {
   campaignId: string;
   initialEntries?: LeaderboardEntry[];
   onConnectionChange?: (isConnected: boolean) => void;
+  isLoading?: boolean;
 };
 
 type RankMovement = "up" | "down" | "same";
@@ -66,7 +71,7 @@ function formatScore(score: number) {
   return score.toFixed(2);
 }
 
-export function Leaderboard({ campaignId, initialEntries = [], onConnectionChange }: LeaderboardProps) {
+export function Leaderboard({ campaignId, initialEntries = [], onConnectionChange, isLoading = false }: LeaderboardProps) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>(initialEntries);
   const [transientMovementByUserId, setTransientMovementByUserId] = useState<Record<string, RankMovement>>({});
   const socketRef = useRef<Socket | null>(null);
@@ -138,8 +143,40 @@ export function Leaderboard({ campaignId, initialEntries = [], onConnectionChang
 
   const hasEntries = useMemo(() => entries.length > 0, [entries]);
 
+  if (isLoading) {
+    return (
+      <ul className="space-y-3">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <li key={`leaderboard-skeleton-${index}`} className="rounded-md border border-border p-3 sm:p-4">
+            <div className="grid grid-cols-[auto,1fr,auto] items-center gap-3 sm:grid-cols-[auto,1.4fr,0.8fr,auto] sm:gap-4">
+              <Skeleton className="h-6 w-8" />
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              </div>
+              <div className="justify-self-end space-y-2">
+                <Skeleton className="ml-auto h-4 w-16" />
+                <Skeleton className="ml-auto h-3 w-10" />
+              </div>
+              <Skeleton className="h-4 w-4" />
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
   if (!hasEntries) {
-    return <p className="text-sm text-muted">No leaderboard entries yet.</p>;
+    return (
+      <EmptyState
+        variant="leaderboard"
+        title="No posts in leaderboard"
+        description="Once creators submit and verify posts, rankings will appear here."
+      />
+    );
   }
 
   return (
@@ -175,7 +212,18 @@ export function Leaderboard({ campaignId, initialEntries = [], onConnectionChang
                 />
 
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-secondary sm:text-base">{entry.userName}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-semibold text-secondary sm:text-base">{entry.userName}</p>
+                    {resolveBadges({
+                      rank: entry.rank,
+                      verifiedPostCount: entry.postCount,
+                      maxPostScore: entry.score
+                    })
+                      .slice(0, 2)
+                      .map((badge) => (
+                        <Badge key={`${entry.userId}-${badge}`} badge={badge} compact />
+                      ))}
+                  </div>
                   <p className="text-xs text-muted">{entry.postCount} posts</p>
                 </div>
               </div>

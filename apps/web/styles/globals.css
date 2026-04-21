@@ -43,6 +43,18 @@
   --breakpoint-xl: var(--token-breakpoint-xl);
 }
 
+html.dark {
+  --color-primary: #34d399;
+  --color-secondary: #93c5fd;
+  --color-accent: #fbbf24;
+  --color-danger: #f87171;
+  --color-success: #4ade80;
+  --color-muted: #94a3b8;
+  --color-background: #020617;
+  --color-surface: #0f172a;
+  --color-border: #334155;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -72,5 +84,26 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-border) 72%, transparent),
+      color-mix(in srgb, var(--color-surface) 92%, white),
+      color-mix(in srgb, var(--color-border) 72%, transparent)
+    );
+    background-size: 220% 100%;
+    border-radius: var(--radius-md);
+    animation: skeleton-shimmer 1.2s linear infinite;
+  }
+
+  @keyframes skeleton-shimmer {
+    0% {
+      background-position: 220% 0;
+    }
+    100% {
+      background-position: -40% 0;
+    }
   }
 }
