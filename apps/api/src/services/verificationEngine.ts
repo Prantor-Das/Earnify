@@ -3,6 +3,7 @@ import { CampaignStatus, PostStatus, SocialPlatform, prisma } from "@earnify/db"
 import { load } from "cheerio";
 
 import { runAiDetection } from "./aiDetection";
+import { calculateScore } from "./scoringEngine";
 
 type ExtractedContent = {
   ogTitle: string;
@@ -216,6 +217,15 @@ async function runVerificationPipeline(postId: string): Promise<void> {
       rejectionReason: null
     }
   });
+
+  try {
+    await calculateScore(post.id);
+  } catch (error) {
+    console.error("Score calculation failed", {
+      postId: post.id,
+      error
+    });
+  }
 }
 
 export { runVerificationPipeline };

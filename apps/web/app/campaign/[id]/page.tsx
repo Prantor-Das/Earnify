@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
-import type { ApiResponse, CampaignStatus, PostStatus, SocialPlatform } from "@earnify/shared";
+import type { ApiResponse, CampaignStatus, LeaderboardEntry, PostStatus, SocialPlatform } from "@earnify/shared";
 import { useParams } from "next/navigation";
 
 import { BudgetBar } from "../../../components/BudgetBar";
+import { Leaderboard } from "../../../components/Leaderboard";
 import { withAuth } from "../../../components/auth/withAuth";
-import { PlatformIcon } from "../../../components/PlatformIcon";
 import { StatusBadge } from "../../../components/StatusBadge";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
@@ -29,23 +29,6 @@ type CampaignDetails = {
       avatar?: string | null;
       score: number;
     } | null;
-  };
-};
-
-type LeaderboardItem = {
-  rank: number;
-  score: number;
-  user: {
-    id: string;
-    name: string;
-    avatar?: string | null;
-  };
-  post: {
-    id: string;
-    postUrl: string;
-    platform: SocialPlatform;
-    status: PostStatus;
-    createdAt: string;
   };
 };
 
@@ -70,10 +53,11 @@ function CampaignDetailsPage() {
   const campaignId = params.id;
 
   const [campaign, setCampaign] = useState<CampaignDetails | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("leaderboard");
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
 
   const [postUrl, setPostUrl] = useState("");
   const [platform, setPlatform] = useState<SocialPlatform>("TWITTER");
@@ -103,7 +87,7 @@ function CampaignDetailsPage() {
         ]);
 
         const campaignPayload = (await campaignResponse.json()) as ApiResponse<CampaignDetails>;
-        const leaderboardPayload = (await leaderboardResponse.json()) as ApiResponse<LeaderboardItem[]>;
+        const leaderboardPayload = (await leaderboardResponse.json()) as ApiResponse<LeaderboardEntry[]>;
 
         if (!campaignResponse.ok || !campaignPayload.success || !campaignPayload.data) {
           setError(campaignPayload.error ?? "Unable to load campaign");
@@ -281,7 +265,27 @@ function CampaignDetailsPage() {
           }}
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-2xl font-semibold text-secondary sm:text-3xl">{campaign.title}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-semibold text-secondary sm:text-3xl">{campaign.title}</h1>
+
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-1 text-xs font-semibold"
+                style={{
+                  color: isLiveConnected ? "var(--color-success)" : "var(--color-muted)",
+                  backgroundColor: "color-mix(in srgb, var(--color-surface) 80%, transparent)"
+                }}
+              >
+                <span
+                  aria-hidden
+                  className={`inline-block h-2 w-2 rounded-full ${isLiveConnected ? "animate-pulse" : ""}`}
+                  style={{
+                    backgroundColor: isLiveConnected ? "var(--color-success)" : "var(--color-muted)"
+                  }}
+                />
+                Live
+              </span>
+            </div>
+
             <StatusBadge status={campaign.status} />
           </div>
 
@@ -333,32 +337,11 @@ function CampaignDetailsPage() {
 
         {activeTab === "leaderboard" ? (
           <section className="space-y-4 rounded-lg border border-border bg-surface p-5">
-            <p className="text-sm text-muted">Real-time leaderboard stream will be connected via WebSocket in Commit 5.</p>
-
-            {leaderboard.length > 0 ? (
-              <ul className="space-y-3">
-                {leaderboard.map((entry) => (
-                  <li
-                    key={entry.post.id}
-                    className="flex flex-col gap-3 rounded-md border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
-                    style={{ backgroundColor: "color-mix(in srgb, var(--color-background) 55%, var(--color-surface))" }}
-                  >
-                    <div className="space-y-2">
-                      <p className="text-sm font-semibold text-secondary">
-                        #{entry.rank} {entry.user.name}
-                      </p>
-                      <PlatformIcon platform={entry.post.platform} />
-                      <a className="block text-sm text-primary hover:underline" href={entry.post.postUrl} target="_blank" rel="noreferrer">
-                        {entry.post.postUrl}
-                      </a>
-                    </div>
-                    <p className="text-sm font-semibold text-secondary">{entry.score.toFixed(2)} pts</p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted">No leaderboard entries yet.</p>
-            )}
+            <Leaderboard
+              campaignId={campaignId}
+              initialEntries={leaderboard}
+              onConnectionChange={setIsLiveConnected}
+            />
           </section>
         ) : (
           <section className="rounded-lg border border-border bg-surface p-5">

@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { createServer } from "node:http";
+
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
@@ -13,6 +15,7 @@ import "./auth/passport";
 import { campaignsRouter } from "./routes/campaigns";
 import { postsRouter } from "./routes/posts";
 import { sendSuccess } from "./utils/api-response";
+import { initWebsocket } from "./websocket";
 
 const app = express();
 const port = Number(process.env.API_PORT ?? 4000);
@@ -51,7 +54,11 @@ app.get("/api/health", async (_request, response) => {
   sendSuccess(response, payload);
 });
 
-app.listen(port, () => {
+const server = createServer(app);
+
+initWebsocket(server, webOrigin);
+
+server.listen(port, () => {
   console.log(`Earnify API listening on http://localhost:${port}`);
 });
 

@@ -38,3 +38,13 @@ export interface CampaignSummary {
   endsAt: string;
 }
 
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  userName: string;
+  userAvatar?: string | null;
+  score: number;
+  postCount: number;
+  change: "up" | "down" | "same";
+}
+

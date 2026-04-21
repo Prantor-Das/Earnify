@@ -3,6 +3,7 @@ import { Router } from "express";
 import { CampaignStatus, prisma } from "@earnify/db";
 
 import { requireAuth, requireRole } from "../../middleware/auth";
+import { getTopN } from "../services/leaderboard";
 import { createCampaignWallet, encryptSecretKey } from "../services/stellar";
 import { sendError, sendSuccess } from "../utils/api-response";
 
@@ -285,46 +286,9 @@ campaignsRouter.get("/:id/leaderboard", async (request, response) => {
     return;
   }
 
-  const topPosts = await prisma.score.findMany({
-    where: {
-      campaignId: campaign.id
-    },
-    orderBy: {
-      totalScore: "desc"
-    },
-    take: 10,
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          avatar: true
-        }
-      },
-      post: {
-        select: {
-          id: true,
-          postUrl: true,
-          platform: true,
-          status: true,
-          createdAt: true
-        }
-      }
-    }
-  });
+  const leaderboard = await getTopN(campaign.id, 10);
 
-  sendSuccess(
-    response,
-    topPosts.map((entry, index) => ({
-      rank: index + 1,
-      score: entry.totalScore,
-      user: entry.user,
-      post: {
-        ...entry.post,
-        createdAt: entry.post.createdAt.toISOString()
-      }
-    }))
-  );
+  sendSuccess(response, leaderboard);
 });
 
 export { campaignsRouter };

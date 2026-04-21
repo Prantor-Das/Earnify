@@ -3,7 +3,7 @@ import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
 const databaseUrl =
-  process.env.DATABASE_URL ?? "postgresql://earnify:earnify@localhost:5432/earnify?schema=public";
+  process.env.DATABASE_URL ?? "postgresql://earnify:earnify@localhost:5433/earnify?schema=public";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
