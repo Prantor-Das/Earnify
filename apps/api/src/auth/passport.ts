@@ -21,13 +21,15 @@ function toAuthUser(user: {
   name: string;
   avatar: string | null;
   role: UserRole;
+  walletAddress: string | null;
 }): AuthUser {
   return {
     id: user.id,
     email: user.email,
     name: user.name,
     avatar: user.avatar,
-    role: user.role
+    role: user.role,
+    walletAddress: user.walletAddress
   };
 }
 

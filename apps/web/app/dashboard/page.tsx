@@ -63,7 +63,7 @@ function hashUserId(userId: string) {
 }
 
 function DashboardPage() {
-  const { user } = useAuth();
+  const { user, refreshAuth } = useAuth();
   const { pushToast } = useToast();
 
   const [campaigns, setCampaigns] = useState<DashboardCampaign[]>([]);
@@ -201,6 +201,12 @@ function DashboardPage() {
       return;
     }
 
+    const normalizedWallet = walletInput.trim();
+    if (!/^G[A-Z2-7]{55}$/.test(normalizedWallet)) {
+      setPayoutError("walletAddress must be a valid Stellar ed25519 public key");
+      return;
+    }
+
     setWalletSaving(true);
     setPayoutError(null);
 
@@ -212,7 +218,7 @@ function DashboardPage() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          walletAddress: walletInput.trim()
+          walletAddress: normalizedWallet
         })
       });
 
@@ -233,6 +239,7 @@ function DashboardPage() {
             }
           : previous
       );
+      await refreshAuth();
 
       pushToast({
         type: "success",

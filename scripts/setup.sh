@@ -5,6 +5,24 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+if ! command -v rustc >/dev/null 2>&1; then
+  echo "Error: Rust is required for Soroban contracts."
+  echo "Install with: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+  exit 1
+fi
+
+if ! rustup target list --installed | grep -q 'wasm32-unknown-unknown'; then
+  echo "Error: wasm32 target is missing."
+  echo "Install with: rustup target add wasm32-unknown-unknown"
+  exit 1
+fi
+
+if ! command -v stellar >/dev/null 2>&1; then
+  echo "Error: Stellar CLI is required for Soroban contract workflows."
+  echo "Install with: cargo install --locked stellar-cli --features opt"
+  exit 1
+fi
+
 if [[ -f ".env" ]]; then
   echo ".env already exists, keeping current values"
 else

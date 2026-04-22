@@ -5,7 +5,6 @@ import type { FormEvent } from "react";
 
 import type { ApiResponse, CampaignStatus, LeaderboardEntry, PostStatus, SocialPlatform } from "@earnify/shared";
 import { useParams } from "next/navigation";
-import { io, type Socket } from "socket.io-client";
 
 import { BudgetBar } from "../../../components/BudgetBar";
 import { EmptyState } from "../../../components/EmptyState";
@@ -27,6 +26,7 @@ type CampaignDetails = {
   totalBudget: number;
   remainingBudget: number;
   status: CampaignStatus;
+  contractId?: string | null;
   stats: {
     postCount: number;
     remainingBudget: number;
@@ -68,15 +68,16 @@ type CampaignPayoutEntry = {
   createdAt: string;
 };
 
-function getApiBaseUrl() {
-  const configuredUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+type ContractInfo = {
+  contractId: string;
+  balance: number;
+  status: string;
+  creatorScores: Record<string, number>;
+  explorerUrl: string;
+};
 
-  try {
-    const parsed = new URL(configuredUrl);
-    return `${parsed.protocol}//${parsed.host}`;
-  } catch {
-    return "http://localhost:4000";
-  }
+function truncateAddress(value: string) {
+  return `${value.slice(0, 6)}...${value.slice(-6)}`;
 }
 
 function getPayoutStatusStyle(status: PayoutStatus) {
@@ -154,6 +155,9 @@ function CampaignDetailsPage() {
   const [payoutError, setPayoutError] = useState<string | null>(null);
   const [showPayoutConfirm, setShowPayoutConfirm] = useState(false);
   const [triggeringPayout, setTriggeringPayout] = useState(false);
+  const [payoutStreaming, setPayoutStreaming] = useState(false);
+  const [founderSecret, setFounderSecret] = useState("");
+  const [contractInfo, setContractInfo] = useState<ContractInfo | null>(null);
 
   useEffect(() => {
     if (!campaignId) {
@@ -252,82 +256,94 @@ function CampaignDetailsPage() {
   }, [campaignId, isFounderView]);
 
   useEffect(() => {
-    if (!campaignId || !isFounderView) {
-      return;
-    }
-
-    const socket: Socket = io(getApiBaseUrl(), {
-      transports: ["websocket"],
-      withCredentials: true
-    });
-
-    socket.on("connect", () => {
-      socket.emit("join-campaign", { campaignId });
-    });
-
-    socket.on(
-      "payout-update",
-      (
-        payload:
-          | {
-              campaignId?: string;
-              payout?: Omit<CampaignPayoutEntry, "id" | "createdAt" | "stellarTxUrl">;
-            }
-          | undefined
-      ) => {
-        if (!payload?.campaignId || payload.campaignId !== campaignId || !payload.payout) {
-          return;
-        }
-
-        const payoutEvent = payload.payout;
-
-        const txUrl = payoutEvent.stellarTxHash
-          ? `https://testnet.stellar.expert/explorer/testnet/tx/${payoutEvent.stellarTxHash}`
-          : null;
-
-        setPayouts((previous) => {
-          const transientEntry: CampaignPayoutEntry = {
-            id: `${payoutEvent.userId}-${Date.now()}`,
-            campaignId,
-            userId: payoutEvent.userId,
-            userName: payoutEvent.userName,
-            amount: payoutEvent.amount,
-            status: payoutEvent.status,
-            stellarTxHash: payoutEvent.stellarTxHash ?? null,
-            stellarTxUrl: txUrl,
-            createdAt: new Date().toISOString()
-          };
-
-          return [transientEntry, ...previous].slice(0, 40);
-        });
-      }
-    );
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [campaignId, isFounderView]);
-
-  const handleTriggerPayout = async () => {
     if (!campaignId) {
       return;
     }
 
+    let cancelled = false;
+
+    const fetchContractInfo = async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/campaigns/${campaignId}/contract-info`, {
+          method: "GET",
+          credentials: "include"
+        });
+
+        const payload = (await response.json()) as ApiResponse<ContractInfo>;
+
+        if (!cancelled && response.ok && payload.success && payload.data) {
+          setContractInfo(payload.data);
+        }
+      } catch {
+        // keep last successful contract snapshot in UI
+      }
+    };
+
+    void fetchContractInfo();
+    const intervalId = window.setInterval(() => {
+      void fetchContractInfo();
+    }, 30_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [campaignId]);
+
+  const handleTriggerPayout = async () => {
+    if (!campaignId || !founderSecret.trim()) {
+      setPayoutError("Founder secret is required to authorize on-chain payout transactions");
+      return;
+    }
+
     setTriggeringPayout(true);
+    setPayoutStreaming(true);
     setPayoutError(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/campaigns/${campaignId}/payout`, {
-        method: "POST",
-        credentials: "include"
+      const streamUrl = new URL(`${apiBaseUrl}/api/campaigns/${campaignId}/payout`);
+      streamUrl.searchParams.set("founderSecret", founderSecret.trim());
+
+      const eventSource = new EventSource(streamUrl.toString(), { withCredentials: true });
+
+      eventSource.addEventListener("payout", (event) => {
+        const data = JSON.parse(event.data) as {
+          payoutId: string;
+          creatorId: string;
+          creatorName: string;
+          amountXLM: number;
+          status: PayoutStatus;
+          txHash: string | null;
+          txUrl: string | null;
+        };
+
+        setPayouts((previous) => {
+          const nextEntry: CampaignPayoutEntry = {
+            id: data.payoutId,
+            campaignId,
+            userId: data.creatorId,
+            userName: data.creatorName,
+            amount: data.amountXLM,
+            status: data.status,
+            stellarTxHash: data.txHash,
+            stellarTxUrl: data.txUrl,
+            createdAt: new Date().toISOString()
+          };
+
+          return [nextEntry, ...previous.filter((entry) => entry.id !== data.payoutId)].slice(0, 60);
+        });
       });
 
-      const payload = (await response.json()) as ApiResponse<{ payouts?: CampaignPayoutEntry[] }>;
+      eventSource.addEventListener("done", () => {
+        setPayoutStreaming(false);
+        eventSource.close();
+      });
 
-      if (!response.ok || !payload.success) {
-        setPayoutError(payload.error ?? "Failed to trigger payout");
-        return;
-      }
+      eventSource.addEventListener("error", () => {
+        setPayoutStreaming(false);
+        setPayoutError("Payout stream disconnected before completion");
+        eventSource.close();
+      });
 
       pushToast({
         type: "info",
@@ -336,6 +352,7 @@ function CampaignDetailsPage() {
       });
     } catch {
       setPayoutError("Failed to trigger payout");
+      setPayoutStreaming(false);
     } finally {
       setTriggeringPayout(false);
       setShowPayoutConfirm(false);
@@ -561,16 +578,30 @@ function CampaignDetailsPage() {
                 <button
                   type="button"
                   onClick={() => setShowPayoutConfirm(true)}
-                  disabled={triggeringPayout}
+                  disabled={triggeringPayout || payoutStreaming}
                   className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-secondary disabled:opacity-60"
                   style={{
                     background:
                       "linear-gradient(120deg, color-mix(in srgb, var(--color-accent) 24%, white), var(--color-surface))"
                   }}
                 >
-                  {triggeringPayout ? "Triggering..." : "Trigger Payout"}
+                  {triggeringPayout || payoutStreaming ? "Streaming..." : "Trigger Payout"}
                 </button>
               ) : null}
+            </div>
+
+            <div className="grid gap-2">
+              <label htmlFor="founder-secret" className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
+                Founder Stellar Secret
+              </label>
+              <input
+                id="founder-secret"
+                type="password"
+                value={founderSecret}
+                onChange={(event) => setFounderSecret(event.target.value)}
+                placeholder="S..."
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-secondary outline-none focus:border-primary"
+              />
             </div>
 
             {payoutError ? <p className="text-sm text-danger">{payoutError}</p> : null}
@@ -645,6 +676,12 @@ function CampaignDetailsPage() {
                           {payout.status}
                         </span>
 
+                        {payout.status === "COMPLETED" ? (
+                          <span className="rounded-full border border-success/40 bg-success/10 px-2 py-1 text-xs font-semibold text-success">
+                            On-chain verified
+                          </span>
+                        ) : null}
+
                         {payout.stellarTxUrl ? (
                           <a
                             href={payout.stellarTxUrl}
@@ -662,6 +699,50 @@ function CampaignDetailsPage() {
                   ))}
                 </ul>
               ) : null}
+            </div>
+          </section>
+        ) : null}
+
+        {campaign.contractId && contractInfo ? (
+          <section className="rounded-lg border border-border bg-surface p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">Contract Info</p>
+                <p className="mt-1 text-sm text-muted">Live on-chain snapshot from Soroban RPC (updates every 30s).</p>
+              </div>
+              <a
+                href={contractInfo.explorerUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-semibold text-secondary"
+              >
+                View on Stellar Expert
+              </a>
+            </div>
+
+            <div className="mt-4 grid gap-3 text-sm text-secondary sm:grid-cols-3">
+              <div className="rounded-md border border-border bg-background p-3">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted">Contract ID</p>
+                <p className="mt-1 font-semibold">{truncateAddress(contractInfo.contractId)}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(contractInfo.contractId);
+                    pushToast({ type: "success", title: "Copied", message: "Contract ID copied to clipboard." });
+                  }}
+                  className="mt-2 rounded-md border border-border px-2 py-1 text-xs font-semibold text-secondary"
+                >
+                  Copy
+                </button>
+              </div>
+              <div className="rounded-md border border-border bg-background p-3">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted">On-chain Balance</p>
+                <p className="mt-1 font-semibold">{contractInfo.balance.toFixed(4)} XLM</p>
+              </div>
+              <div className="rounded-md border border-border bg-background p-3">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted">Status</p>
+                <p className="mt-1 font-semibold">{contractInfo.status}</p>
+              </div>
             </div>
           </section>
         ) : null}

@@ -13,6 +13,8 @@ type CreatedCampaignResponse = {
   id: string;
   title: string;
   walletAddress: string;
+  contractId?: string | null;
+  fundingTxHash?: string | null;
 };
 
 function AdminCreateCampaignPage() {
@@ -21,6 +23,7 @@ function AdminCreateCampaignPage() {
   const [productUrl, setProductUrl] = useState("");
   const [totalBudget, setTotalBudget] = useState("");
   const [endsAt, setEndsAt] = useState("");
+  const [founderSecret, setFounderSecret] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdCampaign, setCreatedCampaign] = useState<CreatedCampaignResponse | null>(null);
@@ -43,7 +46,8 @@ function AdminCreateCampaignPage() {
           description,
           productUrl,
           totalBudget: Number(totalBudget),
-          endsAt: new Date(endsAt).toISOString()
+          endsAt: new Date(endsAt).toISOString(),
+          founderSecret: founderSecret.trim()
         })
       });
 
@@ -61,6 +65,7 @@ function AdminCreateCampaignPage() {
       setProductUrl("");
       setTotalBudget("");
       setEndsAt("");
+      setFounderSecret("");
     } catch {
       setError("Failed to create campaign");
     } finally {
@@ -82,7 +87,7 @@ function AdminCreateCampaignPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">Founder Console</p>
             <h1 className="text-2xl font-semibold text-secondary sm:text-3xl">Create a campaign</h1>
             <p className="text-sm leading-7 text-muted">
-              A dedicated Stellar testnet wallet is generated and funded on campaign creation.
+              Campaign creation deploys a dedicated Soroban contract on Stellar testnet.
             </p>
           </header>
 
@@ -166,6 +171,21 @@ function AdminCreateCampaignPage() {
             />
           </div>
 
+          <div className="space-y-2">
+            <label htmlFor="founderSecret" className="text-sm font-medium text-secondary">
+              Founder Secret Key (S...)
+            </label>
+            <input
+              id="founderSecret"
+              type="password"
+              value={founderSecret}
+              onChange={(event) => setFounderSecret(event.target.value)}
+              required
+              className="w-full rounded-md border border-border px-3 py-2 text-sm text-secondary outline-none focus:border-primary"
+              style={{ backgroundColor: "var(--color-background)" }}
+            />
+          </div>
+
           <button
             type="submit"
             disabled={loading}
@@ -184,6 +204,9 @@ function AdminCreateCampaignPage() {
             <div className="mt-5 rounded-md border border-border bg-background p-4">
               <p className="text-sm font-semibold text-secondary">Campaign created: {createdCampaign.title}</p>
               <p className="mt-1 break-all text-sm text-muted">Wallet Address: {createdCampaign.walletAddress}</p>
+              {createdCampaign.contractId ? (
+                <p className="mt-1 break-all text-sm text-muted">Contract ID: {createdCampaign.contractId}</p>
+              ) : null}
             </div>
           ) : null}
         </article>

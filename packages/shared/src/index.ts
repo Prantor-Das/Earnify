@@ -17,6 +17,7 @@ export interface AuthUser {
   name: string;
   avatar?: string | null;
   role: UserRole;
+  walletAddress?: string | null;
 }
 
 export interface ApiHealthResponse {

@@ -34,6 +34,39 @@ Earnify is a creator marketing platform where founders launch campaigns and crea
 ./scripts/setup.sh
 ```
 
+## 3.1) Soroban prerequisites (required for real on-chain payouts)
+1. Install Rust:
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   ```
+2. Add WASM target:
+   ```bash
+   rustup target add wasm32-unknown-unknown
+   ```
+3. Install Stellar CLI:
+   ```bash
+   cargo install --locked stellar-cli --features opt
+   ```
+4. Configure testnet:
+   ```bash
+   stellar network add testnet \
+     --rpc-url https://soroban-testnet.stellar.org \
+     --network-passphrase "Test SDF Network ; September 2015"
+   ```
+5. Generate admin keypair:
+   ```bash
+   stellar keys generate admin --network testnet
+   ```
+6. Fund admin:
+   ```bash
+   stellar keys fund admin --network testnet
+   ```
+7. Run deploy script:
+   ```bash
+   bash scripts/deploy-contract.sh
+   ```
+8. Copy `SOROBAN_CONTRACT_ID` output into `.env`.
+
 Open [http://localhost:3000](http://localhost:3000)
 
 ## 4) Demo walkthrough steps
@@ -56,7 +89,7 @@ Edit apps/web/styles/theme.ts to change the entire UI
 - Express 5 + Socket.IO (API + realtime)
 - PostgreSQL + Prisma ORM (primary data)
 - Redis (leaderboard state)
-- Stellar testnet SDK (payout simulation)
+- Stellar Soroban + Stellar testnet SDK (real on-chain payouts)
 - pnpm workspaces + TypeScript (monorepo/tooling)
 
 ## 7) Free deployment (Vercel + Render + Neon + Upstash)

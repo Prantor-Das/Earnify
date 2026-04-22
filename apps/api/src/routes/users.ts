@@ -1,9 +1,10 @@
 import { Router } from "express";
 
 import { prisma } from "@earnify/db";
+import * as StellarSdk from "@stellar/stellar-sdk";
 
 import { requireAuth } from "../../middleware/auth";
-import { claimPayout } from "../services/payoutService";
+import { triggerCreatorPayout } from "../services/sorobanClient";
 import { sendError, sendSuccess } from "../utils/api-response";
 
 const usersRouter = Router();
@@ -25,7 +26,7 @@ function toNumber(value: unknown) {
 }
 
 function isValidStellarPublicKey(value: string) {
-  return /^G[A-Z2-7]{55}$/.test(value);
+  return StellarSdk.StrKey.isValidEd25519PublicKey(value);
 }
 
 usersRouter.get("/:id/payouts", requireAuth, async (request, response) => {
@@ -139,6 +140,7 @@ usersRouter.patch("/:id/wallet", requireAuth, async (request, response) => {
 usersRouter.post("/:id/payouts/:campaignId/claim", requireAuth, async (request, response) => {
   const userId = parseIdParam(request.params.id);
   const campaignId = parseIdParam(request.params.campaignId);
+  const creatorSecret = (request.body as { creatorSecret?: string }).creatorSecret;
 
   if (!userId || !campaignId) {
     sendError(response, "User id and campaign id are required", 400);
@@ -155,9 +157,74 @@ usersRouter.post("/:id/payouts/:campaignId/claim", requireAuth, async (request, 
     return;
   }
 
+  if (!creatorSecret) {
+    sendError(response, "creatorSecret is required", 400);
+    return;
+  }
+
+  const campaign = await prisma.campaign.findUnique({
+    where: {
+      id: campaignId
+    },
+    select: {
+      stellarContractId: true
+    }
+  });
+
+  if (!campaign?.stellarContractId) {
+    sendError(response, "Campaign contract not found", 404);
+    return;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId
+    },
+    select: {
+      walletAddress: true
+    }
+  });
+
+  if (!user?.walletAddress) {
+    sendError(response, "Wallet address is required to claim payout", 400);
+    return;
+  }
+
+  let secretPublicKey: string;
   try {
-    const result = await claimPayout(userId, campaignId);
-    sendSuccess(response, result);
+    secretPublicKey = StellarSdk.Keypair.fromSecret(creatorSecret).publicKey();
+  } catch {
+    sendError(response, "creatorSecret must be a valid Stellar secret key", 400);
+    return;
+  }
+
+  if (secretPublicKey !== user.walletAddress) {
+    sendError(response, "creatorSecret does not match your connected wallet", 400);
+    return;
+  }
+
+  try {
+    const result = await triggerCreatorPayout(campaign.stellarContractId, creatorSecret);
+
+    const payout = await prisma.payout.create({
+      data: {
+        userId,
+        campaignId,
+        amount: result.amountXLM,
+        status: "COMPLETED",
+        stellarTxHash: result.txHash
+      }
+    });
+
+    sendSuccess(response, {
+      id: payout.id,
+      status: payout.status,
+      amount: toNumber(payout.amount),
+      stellarTxHash: payout.stellarTxHash,
+      stellarTxUrl: payout.stellarTxHash
+        ? `https://testnet.stellar.expert/explorer/testnet/tx/${payout.stellarTxHash}`
+        : null
+    });
   } catch (error) {
     sendError(response, error instanceof Error ? error.message : "Failed to claim payout", 400);
   }

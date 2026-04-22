@@ -61,6 +61,8 @@ model Campaign {
   status                  CampaignStatus @default(ACTIVE)
   founderId               String
   founder                 User           @relation(fields: [founderId], references: [id], onDelete: Cascade)
+  stellarContractId       String?
+  fundingTxHash           String?
   stellarWalletPublicKey  String
   stellarWalletSecretKeyEncrypted String?
   createdAt               DateTime       @default(now())
@@ -113,6 +115,7 @@ model Score {
   campaignId  String
   campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   totalScore  Float
+  scoreTxHash String?
   updatedAt   DateTime @updatedAt
 
   @@unique([postId, userId, campaignId])

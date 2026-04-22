@@ -2,6 +2,7 @@ import { prisma } from "@earnify/db";
 
 import { emitLeaderboardUpdate } from "../websocket";
 import { getTopN, updateScore } from "./leaderboard";
+import { updateCreatorScore } from "./sorobanClient";
 
 function computePostScore(input: {
   views: number;
@@ -60,7 +61,7 @@ async function calculateScore(postId: string): Promise<number> {
     authenticityScore: post.authenticityScore ?? 0
   });
 
-  await prisma.score.upsert({
+  const savedScore = await prisma.score.upsert({
     where: {
       postId_userId_campaignId: {
         postId,
@@ -76,8 +77,51 @@ async function calculateScore(postId: string): Promise<number> {
       userId: post.userId,
       campaignId: post.campaignId,
       totalScore: postScore
+    },
+    select: {
+      id: true
     }
   });
+
+  try {
+    const [campaign, user] = await Promise.all([
+      prisma.campaign.findUnique({
+        where: {
+          id: post.campaignId
+        },
+        select: {
+          stellarContractId: true
+        }
+      }),
+      prisma.user.findUnique({
+        where: {
+          id: post.userId
+        },
+        select: {
+          walletAddress: true
+        }
+      })
+    ]);
+
+    if (campaign?.stellarContractId && user?.walletAddress) {
+      const scoreResult = await updateCreatorScore(campaign.stellarContractId, user.walletAddress, postScore);
+      await prisma.score.update({
+        where: {
+          id: savedScore.id
+        },
+        data: {
+          scoreTxHash: scoreResult.txHash
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Failed to update score on Soroban", {
+      postId,
+      campaignId: post.campaignId,
+      userId: post.userId,
+      error
+    });
+  }
 
   const scoreAggregate = await prisma.score.aggregate({
     where: {

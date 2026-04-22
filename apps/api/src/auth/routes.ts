@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import passport from "passport";
 import type { SignOptions } from "jsonwebtoken";
 
+import { prisma } from "@earnify/db";
 import type { AuthUser } from "@earnify/shared";
 
 import { requireAuth } from "../../middleware/auth";
@@ -48,7 +49,8 @@ function issueJwt(user: AuthUser) {
       email: user.email,
       role: user.role,
       name: user.name,
-      avatar: user.avatar ?? null
+      avatar: user.avatar ?? null,
+      walletAddress: user.walletAddress ?? null
     },
     jwtSecret,
     signOptions
@@ -104,9 +106,33 @@ authRouter.get("/google/callback", (request, response, next) => {
   })(request, response, next);
 });
 
-authRouter.get("/me", requireAuth, (request, response) => {
+authRouter.get("/me", requireAuth, async (request, response) => {
+  if (!request.user) {
+    sendError(response, "Unauthorized", 401);
+    return;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: {
+      id: request.user.id
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      avatar: true,
+      role: true,
+      walletAddress: true
+    }
+  });
+
+  if (!user) {
+    sendError(response, "User not found", 404);
+    return;
+  }
+
   sendSuccess(response, {
-    user: request.user as AuthUser
+    user
   });
 });
 

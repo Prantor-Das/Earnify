@@ -15,6 +15,7 @@ type JwtPayload = {
   role: UserRole;
   name: string;
   avatar?: string | null;
+  walletAddress?: string | null;
 };
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -75,7 +76,8 @@ function decodeToken(token: string) {
       email: decoded.email,
       role: decoded.role,
       name: decoded.name,
-      avatar: decoded.avatar ?? null
+      avatar: decoded.avatar ?? null,
+      walletAddress: decoded.walletAddress ?? null
     };
 
     return user;

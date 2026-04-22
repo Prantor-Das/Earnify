@@ -11,6 +11,7 @@ type NavbarProps = {
 
 function Navbar({ onToggleTheme, isDarkMode }: NavbarProps) {
   const { user, isAuthenticated, logout } = useAuth();
+  const walletLabel = user?.walletAddress ? `${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-6)}` : null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-surface/85 backdrop-blur">
@@ -43,6 +44,11 @@ function Navbar({ onToggleTheme, isDarkMode }: NavbarProps) {
               <span className="rounded-md border border-border bg-background px-3 py-1.5 text-xs text-muted">
                 {user?.name ?? "User"}
               </span>
+              {walletLabel ? (
+                <span className="rounded-md border border-success/40 bg-success/10 px-3 py-1.5 text-xs font-semibold text-success">
+                  Wallet connected: {walletLabel}
+                </span>
+              ) : null}
               <button
                 type="button"
                 onClick={() => {
