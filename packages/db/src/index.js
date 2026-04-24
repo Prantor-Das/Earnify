@@ -1,7 +1,16 @@
+import { config as loadEnv } from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
-const databaseUrl = process.env.DATABASE_URL ?? "postgresql://earnify:earnify@localhost:5433/earnify?schema=public";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+loadEnv({ path: path.resolve(__dirname, "../../../.env") });
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required. Set it to your Neon Postgres connection string.");
+}
 const pool = new Pool({
     connectionString: databaseUrl
 });

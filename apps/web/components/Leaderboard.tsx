@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { LeaderboardEntry } from "@earnify/shared";
+import type { LeaderboardEntry, SocialPlatform } from "@earnify/shared";
 import { io, type Socket } from "socket.io-client";
 
 import { Badge, resolveBadges } from "./Badge";
@@ -18,13 +18,16 @@ type LeaderboardProps = {
 
 type RankMovement = "up" | "down" | "same";
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function getApiBaseUrl() {
   const configuredUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
   try {
     const parsed = new URL(configuredUrl);
-
     return `${parsed.protocol}//${parsed.host}`;
   } catch {
     return "http://localhost:4000";
@@ -32,10 +35,7 @@ function getApiBaseUrl() {
 }
 
 function getMovementFromRanks(previousRank: number | undefined, currentRank: number): RankMovement {
-  if (previousRank === undefined || previousRank === currentRank) {
-    return "same";
-  }
-
+  if (previousRank === undefined || previousRank === currentRank) return "same";
   return previousRank > currentRank ? "up" : "down";
 }
 
@@ -46,21 +46,18 @@ function getPodiumRowStyle(rank: number) {
       borderColor: "color-mix(in srgb, var(--color-accent) 38%, var(--color-border))"
     };
   }
-
   if (rank === 2) {
     return {
       backgroundColor: "color-mix(in srgb, var(--color-muted) 12%, var(--color-surface))",
       borderColor: "color-mix(in srgb, var(--color-muted) 30%, var(--color-border))"
     };
   }
-
   if (rank === 3) {
     return {
       backgroundColor: "color-mix(in srgb, var(--color-primary) 12%, var(--color-surface))",
       borderColor: "color-mix(in srgb, var(--color-primary) 30%, var(--color-border))"
     };
   }
-
   return {
     backgroundColor: "color-mix(in srgb, var(--color-background) 55%, var(--color-surface))",
     borderColor: "var(--color-border)"
@@ -68,24 +65,112 @@ function getPodiumRowStyle(rank: number) {
 }
 
 function formatScore(score: number) {
-  return score.toFixed(2);
+  return score.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
-export function Leaderboard({ campaignId, initialEntries = [], onConnectionChange, isLoading = false }: LeaderboardProps) {
+function formatEarnings(xlm: number) {
+  return `${xlm.toFixed(2)} XLM`;
+}
+
+function formatLastUpdated(iso: string | null) {
+  if (!iso) return null;
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(new Date(iso));
+  } catch {
+    return null;
+  }
+}
+
+// Compact platform badge (no label, just the short code)
+function PlatformBadge({ platform }: { platform: SocialPlatform }) {
+  const labels: Record<SocialPlatform, string> = {
+    TWITTER: "X",
+    LINKEDIN: "in",
+    INSTAGRAM: "IG"
+  };
+  const fullNames: Record<SocialPlatform, string> = {
+    TWITTER: "Twitter / X",
+    LINKEDIN: "LinkedIn",
+    INSTAGRAM: "Instagram"
+  };
+
+  return (
+    <span
+      aria-label={fullNames[platform]}
+      title={fullNames[platform]}
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-[10px] font-bold"
+      style={{ backgroundColor: "color-mix(in srgb, var(--color-secondary) 10%, var(--color-surface))" }}
+    >
+      {labels[platform]}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function Leaderboard({ campaignId, initialEntries = [], onConnectionChange, isLoading: externalLoading = false }: LeaderboardProps) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>(initialEntries);
+  const [fetchLoading, setFetchLoading] = useState(initialEntries.length === 0);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [transientMovementByUserId, setTransientMovementByUserId] = useState<Record<string, RankMovement>>({});
   const socketRef = useRef<Socket | null>(null);
   const movementTimerRef = useRef<number | null>(null);
   const entriesRef = useRef<LeaderboardEntry[]>(initialEntries);
 
-  useEffect(() => {
-    setEntries(initialEntries);
-  }, [initialEntries]);
+  const isLoading = externalLoading || fetchLoading;
 
+  // Sync ref so the socket handler always sees the latest entries
   useEffect(() => {
     entriesRef.current = entries;
   }, [entries]);
 
+  // Fetch leaderboard from API
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/api/campaigns/${campaignId}/leaderboard`, {
+        credentials: "include"
+      });
+      if (!res.ok) return;
+      const json = (await res.json()) as { success: boolean; data?: LeaderboardEntry[] };
+      if (json.success && Array.isArray(json.data)) {
+        setEntries(json.data);
+        // Use the most recent lastUpdatedAt from the entries
+        const latest = json.data.reduce<string | null>((acc, e) => {
+          if (!e.lastUpdatedAt) return acc;
+          if (!acc) return e.lastUpdatedAt;
+          return e.lastUpdatedAt > acc ? e.lastUpdatedAt : acc;
+        }, null);
+        setLastUpdatedAt(latest);
+      }
+    } catch {
+      // silently ignore fetch errors — stale data is better than a crash
+    } finally {
+      setFetchLoading(false);
+    }
+  }, [campaignId]);
+
+  // Initial fetch
+  useEffect(() => {
+    void fetchLeaderboard();
+  }, [fetchLeaderboard]);
+
+  // Sync when parent passes new initialEntries
+  useEffect(() => {
+    if (initialEntries.length > 0) {
+      setEntries(initialEntries);
+      setFetchLoading(false);
+    }
+  }, [initialEntries]);
+
+  // WebSocket subscription
   useEffect(() => {
     const socket = io(getApiBaseUrl(), {
       transports: ["websocket"],
@@ -120,10 +205,17 @@ export function Leaderboard({ campaignId, initialEntries = [], onConnectionChang
         setTransientMovementByUserId(movementByUserId);
         setEntries(payload.leaderboard);
 
+        // Update last-updated timestamp
+        const latest = payload.leaderboard.reduce<string | null>((acc, e) => {
+          if (!e.lastUpdatedAt) return acc;
+          if (!acc) return e.lastUpdatedAt;
+          return e.lastUpdatedAt > acc ? e.lastUpdatedAt : acc;
+        }, null);
+        setLastUpdatedAt(latest ?? new Date().toISOString());
+
         if (movementTimerRef.current) {
           window.clearTimeout(movementTimerRef.current);
         }
-
         movementTimerRef.current = window.setTimeout(() => {
           setTransientMovementByUserId({});
         }, 360);
@@ -134,7 +226,6 @@ export function Leaderboard({ campaignId, initialEntries = [], onConnectionChang
       if (movementTimerRef.current) {
         window.clearTimeout(movementTimerRef.current);
       }
-
       onConnectionChange?.(false);
       socket.disconnect();
       socketRef.current = null;
@@ -179,67 +270,93 @@ export function Leaderboard({ campaignId, initialEntries = [], onConnectionChang
     );
   }
 
+  const formattedLastUpdated = formatLastUpdated(lastUpdatedAt);
+
   return (
-    <ul className="space-y-3">
-      {entries.map((entry) => {
-        const movement = transientMovementByUserId[entry.userId] ?? "same";
-        const transformClass =
-          movement === "up" ? "-translate-y-1.5" : movement === "down" ? "translate-y-1.5" : "translate-y-0";
-        const trendSymbol = entry.change === "up" ? "↑" : entry.change === "down" ? "↓" : "→";
-        const trendColor =
-          entry.change === "up"
-            ? "var(--color-success)"
-            : entry.change === "down"
-              ? "var(--color-danger)"
-              : "var(--color-muted)";
+    <div className="space-y-3">
+      {formattedLastUpdated && (
+        <p className="text-right text-xs text-muted">
+          Last updated: <time dateTime={lastUpdatedAt ?? undefined}>{formattedLastUpdated}</time>
+        </p>
+      )}
 
-        return (
-          <li
-            key={entry.userId}
-            className={`grid grid-cols-[auto,1fr,auto] items-center gap-3 rounded-md border p-3 transition-transform duration-300 ease-out sm:grid-cols-[auto,1.4fr,0.8fr,auto] sm:gap-4 sm:p-4 ${transformClass}`}
-            style={getPodiumRowStyle(entry.rank)}
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-8 text-center text-base font-semibold text-secondary">#{entry.rank}</span>
-            </div>
+      <ul className="space-y-3">
+        {entries.map((entry) => {
+          const movement = transientMovementByUserId[entry.userId] ?? "same";
+          const transformClass =
+            movement === "up" ? "-translate-y-1.5" : movement === "down" ? "translate-y-1.5" : "translate-y-0";
+          const trendSymbol = entry.change === "up" ? "↑" : entry.change === "down" ? "↓" : "→";
+          const trendColor =
+            entry.change === "up"
+              ? "var(--color-success)"
+              : entry.change === "down"
+                ? "var(--color-danger)"
+                : "var(--color-muted)";
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-3">
-                <img
-                  src={entry.userAvatar ?? "https://placehold.co/64x64/e2e8f0/334155?text=U"}
-                  alt={`${entry.userName} avatar`}
-                  className="h-9 w-9 rounded-full border border-border object-cover sm:h-10 sm:w-10"
-                />
+          return (
+            <li
+              key={entry.userId}
+              className={`grid grid-cols-[auto,1fr,auto,auto] items-center gap-3 rounded-md border p-3 transition-transform duration-300 ease-out sm:grid-cols-[auto,1.4fr,0.8fr,auto,auto] sm:gap-4 sm:p-4 ${transformClass}`}
+              style={getPodiumRowStyle(entry.rank)}
+            >
+              {/* Rank */}
+              <div className="flex items-center gap-2">
+                <span className="w-8 text-center text-base font-semibold text-secondary">#{entry.rank}</span>
+              </div>
 
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-secondary sm:text-base">{entry.userName}</p>
-                    {resolveBadges({
-                      rank: entry.rank,
-                      verifiedPostCount: entry.postCount,
-                      maxPostScore: entry.score
-                    })
-                      .slice(0, 2)
-                      .map((badge) => (
-                        <Badge key={`${entry.userId}-${badge}`} badge={badge} compact />
-                      ))}
+              {/* Avatar + name + platforms */}
+              <div className="min-w-0">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={entry.userAvatar ?? "https://placehold.co/64x64/e2e8f0/334155?text=U"}
+                    alt={`${entry.userName} avatar`}
+                    className="h-9 w-9 rounded-full border border-border object-cover sm:h-10 sm:w-10"
+                  />
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-secondary sm:text-base">{entry.userName}</p>
+                      {resolveBadges({
+                        rank: entry.rank,
+                        verifiedPostCount: entry.postCount,
+                        maxPostScore: entry.score
+                      })
+                        .slice(0, 2)
+                        .map((badge) => (
+                          <Badge key={`${entry.userId}-${badge}`} badge={badge} compact />
+                        ))}
+                    </div>
+
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      {entry.platforms.length > 0
+                        ? entry.platforms.map((platform) => (
+                            <PlatformBadge key={platform} platform={platform} />
+                          ))
+                        : <span className="text-xs text-muted">{entry.postCount} posts</span>}
+                    </div>
                   </div>
-                  <p className="text-xs text-muted">{entry.postCount} posts</p>
                 </div>
               </div>
-            </div>
 
-            <div className="justify-self-end text-right">
-              <p className="text-sm font-semibold text-secondary sm:text-base">{formatScore(entry.score)}</p>
-              <p className="text-xs text-muted">points</p>
-            </div>
+              {/* Score + earnings */}
+              <div className="justify-self-end text-right">
+                <p className="text-sm font-semibold text-secondary sm:text-base">{formatScore(entry.score)}</p>
+                <p className="text-xs text-muted">pts</p>
+                {entry.estimatedEarnings > 0 && (
+                  <p className="mt-0.5 text-xs font-medium" style={{ color: "var(--color-success)" }}>
+                    ~{formatEarnings(entry.estimatedEarnings)}
+                  </p>
+                )}
+              </div>
 
-            <div className="justify-self-end text-sm font-semibold" style={{ color: trendColor }}>
-              {trendSymbol}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+              {/* Trend arrow */}
+              <div className="justify-self-end text-sm font-semibold" style={{ color: trendColor }}>
+                {trendSymbol}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

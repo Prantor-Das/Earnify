@@ -27,6 +27,9 @@ type CampaignDetails = {
   remainingBudget: number;
   status: CampaignStatus;
   contractId?: string | null;
+  fundingTxHash?: string | null;
+  budget?: string | null;
+  budgetToken?: string | null;
   stats: {
     postCount: number;
     remainingBudget: number;
@@ -703,31 +706,36 @@ function CampaignDetailsPage() {
           </section>
         ) : null}
 
-        {campaign.contractId && contractInfo ? (
+        {campaign.contractId ? (
           <section className="rounded-lg border border-border bg-surface p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">Contract Info</p>
-                <p className="mt-1 text-sm text-muted">Live on-chain snapshot from Soroban RPC (updates every 30s).</p>
+                <p className="mt-1 text-sm text-muted">
+                  {contractInfo
+                    ? "Live on-chain snapshot from Soroban RPC (updates every 30s)."
+                    : "Soroban contract deployed for this campaign."}
+                </p>
               </div>
               <a
-                href={contractInfo.explorerUrl}
+                href={`https://testnet.stellar.expert/explorer/testnet/contract/${campaign.contractId}`}
                 target="_blank"
                 rel="noreferrer"
                 className="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-semibold text-secondary"
               >
-                View on Stellar Expert
+                View on Stellar Expert ↗
               </a>
             </div>
 
-            <div className="mt-4 grid gap-3 text-sm text-secondary sm:grid-cols-3">
+            <div className="mt-4 grid gap-3 text-sm text-secondary sm:grid-cols-2 lg:grid-cols-4">
+              {/* Contract address */}
               <div className="rounded-md border border-border bg-background p-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted">Contract ID</p>
-                <p className="mt-1 font-semibold">{truncateAddress(contractInfo.contractId)}</p>
+                <p className="text-xs uppercase tracking-[0.12em] text-muted">Contract Address</p>
+                <p className="mt-1 font-semibold break-all text-xs">{campaign.contractId}</p>
                 <button
                   type="button"
                   onClick={() => {
-                    void navigator.clipboard.writeText(contractInfo.contractId);
+                    void navigator.clipboard.writeText(campaign.contractId!);
                     pushToast({ type: "success", title: "Copied", message: "Contract ID copied to clipboard." });
                   }}
                   className="mt-2 rounded-md border border-border px-2 py-1 text-xs font-semibold text-secondary"
@@ -735,14 +743,40 @@ function CampaignDetailsPage() {
                   Copy
                 </button>
               </div>
+
+              {/* Funded amount */}
               <div className="rounded-md border border-border bg-background p-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted">On-chain Balance</p>
-                <p className="mt-1 font-semibold">{contractInfo.balance.toFixed(4)} XLM</p>
+                <p className="text-xs uppercase tracking-[0.12em] text-muted">Funded Amount</p>
+                <p className="mt-1 font-semibold">
+                  {campaign.budget ? `${campaign.budget} ${campaign.budgetToken ?? "XLM"}` : `${campaign.totalBudget.toFixed(2)} XLM`}
+                </p>
+                {contractInfo && (
+                  <p className="mt-1 text-xs text-muted">
+                    Remaining: {contractInfo.balance.toFixed(4)} XLM
+                  </p>
+                )}
               </div>
+
+              {/* On-chain status */}
               <div className="rounded-md border border-border bg-background p-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted">Status</p>
-                <p className="mt-1 font-semibold">{contractInfo.status}</p>
+                <p className="text-xs uppercase tracking-[0.12em] text-muted">On-chain Status</p>
+                <p className="mt-1 font-semibold">{contractInfo ? contractInfo.status : "—"}</p>
               </div>
+
+              {/* Funding tx */}
+              {campaign.fundingTxHash ? (
+                <div className="rounded-md border border-border bg-background p-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted">Funding Tx</p>
+                  <a
+                    href={`https://testnet.stellar.expert/explorer/testnet/tx/${campaign.fundingTxHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 block break-all text-xs font-semibold text-secondary underline"
+                  >
+                    {campaign.fundingTxHash.slice(0, 12)}…{campaign.fundingTxHash.slice(-8)}
+                  </a>
+                </div>
+              ) : null}
             </div>
           </section>
         ) : null}

@@ -10,17 +10,17 @@ import passport from "passport";
 import { prisma } from "@earnify/db";
 import type { ApiHealthResponse } from "@earnify/shared";
 
-import { authRouter } from "./auth/routes";
-import "./auth/passport";
-import { startEngagementCron } from "./jobs/engagementCron";
-import { globalErrorHandler, notFoundHandler } from "./middleware/error-handler";
-import { adminRouter } from "./routes/admin";
-import { campaignsRouter } from "./routes/campaigns";
-import { dashboardRouter } from "./routes/dashboard";
-import { postsRouter } from "./routes/posts";
-import { usersRouter } from "./routes/users";
-import { sendSuccess } from "./utils/api-response";
-import { initWebsocket } from "./websocket";
+import { authRouter } from "./auth/routes.ts";
+import "./auth/passport.ts";
+import { startEngagementCron } from "./jobs/engagementCron.ts";
+import { globalErrorHandler, notFoundHandler } from "./middleware/error-handler.ts";
+import { adminRouter } from "./routes/admin.ts";
+import { campaignsRouter } from "./routes/campaigns.ts";
+import { dashboardRouter } from "./routes/dashboard.ts";
+import { postsRouter } from "./routes/posts.ts";
+import { usersRouter } from "./routes/users.ts";
+import { sendSuccess } from "./utils/api-response.ts";
+import { initWebsocket } from "./websocket.ts";
 
 const app = express();
 const port = Number(process.env.API_PORT ?? 4000);

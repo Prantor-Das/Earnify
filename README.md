@@ -17,7 +17,7 @@ Earnify is a creator marketing platform where founders launch campaigns and crea
 └──────────────┬───────────────────┬────────────┘
                │                   │
      ┌─────────▼─────────┐   ┌────▼─────────────┐
-     │   PostgreSQL      │   │      Redis        │
+     │  Neon Postgres    │   │  Upstash Redis    │
      │ - Users/Campaigns │   │ - Live leaderboard│
      │ - Posts/Scores    │   │ - Rank snapshots  │
      │ - Payout records  │   └───────────────────┘
@@ -30,6 +30,7 @@ Earnify is a creator marketing platform where founders launch campaigns and crea
 ```
 
 ## 3) Quick start
+Set `DATABASE_URL` in `.env` to your Neon connection string first, then run:
 ```bash
 ./scripts/setup.sh
 ```
@@ -41,7 +42,7 @@ Earnify is a creator marketing platform where founders launch campaigns and crea
    ```
 2. Add WASM target:
    ```bash
-   rustup target add wasm32-unknown-unknown
+   rustup target add wasm32v1-none
    ```
 3. Install Stellar CLI:
    ```bash
@@ -87,39 +88,7 @@ Edit apps/web/styles/theme.ts to change the entire UI
 ## 6) Tech stack
 - Next.js 16 + React 19 (frontend)
 - Express 5 + Socket.IO (API + realtime)
-- PostgreSQL + Prisma ORM (primary data)
-- Redis (leaderboard state)
+- Neon Postgres + Prisma ORM (primary data)
+- Upstash Redis (leaderboard state)
 - Stellar Soroban + Stellar testnet SDK (real on-chain payouts)
 - pnpm workspaces + TypeScript (monorepo/tooling)
-
-## 7) Free deployment (Vercel + Render + Neon + Upstash)
-1. Database (Neon)
-   - Create a Neon project and copy its pooled `DATABASE_URL`.
-   - Set `DIRECT_URL` to the direct Neon connection string.
-
-2. Redis (Upstash)
-   - Create a Redis database and copy the TLS Redis URL (`rediss://...`).
-   - Set `REDIS_URL` to this value.
-
-3. Backend (Render Free Web Service)
-   - Create a Web Service from this repo.
-   - Build command: `pnpm install --frozen-lockfile && pnpm --filter @earnify/db db:generate && pnpm --filter @earnify/db exec prisma migrate deploy --config prisma.config.ts`
-   - Start command: `pnpm --filter @earnify/api start`
-   - Set environment variables from `.env.example` (production values), including `DATABASE_URL`, `DIRECT_URL`, `REDIS_URL`, `JWT_SECRET`, `OPENAI_API_KEY`, OAuth values, and `STELLAR_ENCRYPTION_KEY`.
-
-4. Frontend (Vercel)
-   - Import the same repo into Vercel.
-   - Set root to `apps/web`.
-   - Set `NEXT_PUBLIC_API_BASE_URL` to your Render backend URL.
-   - Set `NEXT_PUBLIC_API_URL` to `<backend>/api`.
-
-5. Cross-domain auth cookie settings (required)
-   - On backend env set:
-   - `AUTH_COOKIE_SAME_SITE=none`
-   - `AUTH_COOKIE_SECURE=true`
-   - `CORS_ORIGINS=https://your-vercel-domain.vercel.app`
-   - `WEB_AUTH_SUCCESS_REDIRECT=https://your-vercel-domain.vercel.app/dashboard`
-
-6. Google OAuth callback
-   - Set `GOOGLE_CALLBACK_URL` to `https://<your-render-backend>/api/auth/google/callback`.
-   - Add this exact URL in Google Cloud OAuth allowed redirect URIs.

@@ -3,18 +3,24 @@ import { Router } from "express";
 import { CampaignStatus, prisma } from "@earnify/db";
 import * as StellarSdk from "@stellar/stellar-sdk";
 
-import { requireAuth, requireRole } from "../../middleware/auth";
-import { getTopN } from "../services/leaderboard";
+import { requireAuth, requireRole } from "../../middleware/auth.ts";
+import { getTopN } from "../services/leaderboard.ts";
 import {
+  buildInitializeTx,
   deployCampaignContract,
   endCampaign,
   getCampaignInfo,
   getContractBalance,
-  triggerCreatorPayout
-} from "../services/sorobanClient";
-import { sendError, sendSuccess } from "../utils/api-response";
+  triggerCreatorPayout,
+  verifyCampaignFunded
+} from "../services/sorobanClient.ts";
+import { sendError, sendSuccess } from "../utils/api-response.ts";
 
 const campaignsRouter = Router();
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function toNumber(value: unknown) {
   if (typeof value === "number") {
@@ -25,7 +31,13 @@ function toNumber(value: unknown) {
 }
 
 function parseCampaignStatus(value: unknown): CampaignStatus | null {
-  if (value === CampaignStatus.ACTIVE || value === CampaignStatus.PAUSED || value === CampaignStatus.ENDED) {
+  if (
+    value === CampaignStatus.ACTIVE ||
+    value === CampaignStatus.PAUSED ||
+    value === CampaignStatus.ENDED ||
+    value === CampaignStatus.DRAFT ||
+    value === CampaignStatus.COMPLETED
+  ) {
     return value;
   }
 
@@ -49,118 +61,333 @@ function writeSse(response: { write: (chunk: string) => void }, event: string, d
   response.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
+const VALID_PLATFORMS = ["X", "INSTAGRAM", "LINKEDIN", "TWITTER"] as const;
+type Platform = (typeof VALID_PLATFORMS)[number];
+
+function parsePlatforms(value: unknown): Platform[] | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+
+  const platforms = value as unknown[];
+  const valid = platforms.every((p) => typeof p === "string" && VALID_PLATFORMS.includes(p as Platform));
+  if (!valid) {
+    return null;
+  }
+
+  return platforms as Platform[];
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/campaigns — create a DRAFT campaign (founders only)
+// ---------------------------------------------------------------------------
+
 campaignsRouter.post("/", requireAuth, requireRole("FOUNDER"), async (request, response) => {
-  const { title, description, productUrl, totalBudget, endsAt, founderSecret } = request.body as {
+  const {
+    title,
+    description,
+    budget,
+    platforms,
+    requiredKeywords,
+    startDate,
+    endDate,
+    // Legacy fields still accepted for backward compat with admin/create page
+    productUrl,
+    totalBudget,
+    endsAt,
+    founderSecret
+  } = request.body as {
     title?: string;
     description?: string;
+    budget?: string | number;
+    platforms?: unknown;
+    requiredKeywords?: unknown;
+    startDate?: string;
+    endDate?: string;
+    // legacy
     productUrl?: string;
     totalBudget?: number;
     endsAt?: string;
     founderSecret?: string;
   };
 
-  if (!title || !description || !productUrl || !totalBudget || !endsAt || !founderSecret) {
-    sendError(response, "Missing required fields", 400);
-    return;
-  }
-
-  const budget = Number(totalBudget);
-  const campaignEnd = new Date(endsAt);
-
-  if (Number.isNaN(budget) || budget <= 0) {
-    sendError(response, "totalBudget must be a positive number", 400);
-    return;
-  }
-
-  if (Number.isNaN(campaignEnd.getTime())) {
-    sendError(response, "endsAt must be a valid ISO date", 400);
-    return;
-  }
-
   if (!request.user) {
     sendError(response, "Unauthorized", 401);
     return;
   }
 
-  let founderPublicKey: string;
-  try {
-    founderPublicKey = StellarSdk.Keypair.fromSecret(founderSecret).publicKey();
-  } catch {
-    sendError(response, "founderSecret must be a valid Stellar secret key", 400);
+  // ---- Determine if this is the new multi-step flow or the legacy admin flow ----
+  const isLegacyFlow = Boolean(founderSecret);
+
+  if (isLegacyFlow) {
+    // ---- Legacy admin/create flow (deploys contract immediately) ----
+    if (!title || !description || !productUrl || !totalBudget || !endsAt || !founderSecret) {
+      sendError(response, "Missing required fields: title, description, productUrl, totalBudget, endsAt, founderSecret", 400);
+      return;
+    }
+
+    const budgetNum = Number(totalBudget);
+    const campaignEnd = new Date(endsAt);
+
+    if (Number.isNaN(budgetNum) || budgetNum <= 0) {
+      sendError(response, "totalBudget must be a positive number", 400);
+      return;
+    }
+
+    if (Number.isNaN(campaignEnd.getTime())) {
+      sendError(response, "endsAt must be a valid ISO date", 400);
+      return;
+    }
+
+    let founderPublicKey: string;
+    try {
+      founderPublicKey = StellarSdk.Keypair.fromSecret(founderSecret).publicKey();
+    } catch {
+      sendError(response, "founderSecret must be a valid Stellar secret key", 400);
+      return;
+    }
+
+    try {
+      const campaign = await prisma.campaign.create({
+        data: {
+          title: title.trim(),
+          description: description.trim(),
+          productUrl: productUrl.trim(),
+          budget: String(budgetNum),
+          totalBudget: budgetNum,
+          remainingBudget: budgetNum,
+          endsAt: campaignEnd,
+          endDate: campaignEnd,
+          founderId: request.user.id,
+          founderWalletAddress: founderPublicKey,
+          stellarWalletPublicKey: founderPublicKey,
+          stellarWalletSecretKeyEncrypted: null,
+          status: CampaignStatus.DRAFT
+        }
+      });
+
+      const deployment = await deployCampaignContract(founderSecret, budgetNum);
+
+      const updatedCampaign = await prisma.campaign.update({
+        where: { id: campaign.id },
+        data: {
+          contractId: deployment.contractId,
+          stellarContractId: deployment.contractId,
+          fundingTxHash: deployment.txHash,
+          status: CampaignStatus.ACTIVE
+        }
+      });
+
+      sendSuccess(
+        response,
+        {
+          id: updatedCampaign.id,
+          title: updatedCampaign.title,
+          description: updatedCampaign.description,
+          productUrl: updatedCampaign.productUrl,
+          totalBudget: toNumber(updatedCampaign.totalBudget),
+          remainingBudget: toNumber(updatedCampaign.remainingBudget),
+          status: updatedCampaign.status,
+          founderId: updatedCampaign.founderId,
+          endsAt: updatedCampaign.endsAt?.toISOString() ?? null,
+          createdAt: updatedCampaign.createdAt.toISOString(),
+          walletAddress: updatedCampaign.stellarWalletPublicKey,
+          contractId: updatedCampaign.contractId ?? updatedCampaign.stellarContractId,
+          fundingTxHash: updatedCampaign.fundingTxHash,
+          contractExplorerUrl: updatedCampaign.stellarContractId
+            ? `https://testnet.stellar.expert/explorer/testnet/contract/${updatedCampaign.stellarContractId}`
+            : null,
+          fundingTxUrl: getTxUrl(updatedCampaign.fundingTxHash)
+        },
+        201
+      );
+    } catch (error) {
+      console.error("Failed to create campaign and deploy Soroban contract", error);
+      sendError(response, "Failed to create campaign", 500);
+    }
+
+    return;
+  }
+
+  // ---- New multi-step flow: save as DRAFT, no contract deployment ----
+  const errors: Record<string, string> = {};
+
+  if (!title || title.trim().length === 0) {
+    errors.title = "Title is required";
+  } else if (title.trim().length < 3) {
+    errors.title = "Title must be at least 3 characters";
+  }
+
+  if (!description || description.trim().length === 0) {
+    errors.description = "Description is required";
+  } else if (description.trim().length < 10) {
+    errors.description = "Description must be at least 10 characters";
+  }
+
+  const parsedPlatforms = parsePlatforms(platforms);
+  if (!parsedPlatforms) {
+    errors.platforms = `platforms must be a non-empty array of: ${VALID_PLATFORMS.join(", ")}`;
+  }
+
+  if (!Array.isArray(requiredKeywords) || requiredKeywords.length === 0) {
+    errors.requiredKeywords = "At least one required keyword is needed";
+  } else if (!(requiredKeywords as unknown[]).every((k) => typeof k === "string" && k.trim().length > 0)) {
+    errors.requiredKeywords = "All keywords must be non-empty strings";
+  }
+
+  const budgetValue = budget !== undefined ? String(budget).trim() : "";
+  const budgetNum = Number(budgetValue);
+  if (!budgetValue || Number.isNaN(budgetNum) || budgetNum <= 0) {
+    errors.budget = "Budget must be a positive number";
+  }
+
+  let parsedStartDate: Date | undefined;
+  let parsedEndDate: Date | undefined;
+
+  if (startDate) {
+    parsedStartDate = new Date(startDate);
+    if (Number.isNaN(parsedStartDate.getTime())) {
+      errors.startDate = "startDate must be a valid ISO date";
+    }
+  }
+
+  if (!endDate) {
+    errors.endDate = "End date is required";
+  } else {
+    parsedEndDate = new Date(endDate);
+    if (Number.isNaN(parsedEndDate.getTime())) {
+      errors.endDate = "endDate must be a valid ISO date";
+    } else if (parsedStartDate && parsedEndDate <= parsedStartDate) {
+      errors.endDate = "End date must be after start date";
+    } else if (parsedEndDate <= new Date()) {
+      errors.endDate = "End date must be in the future";
+    }
+  }
+
+  if (Object.keys(errors).length > 0) {
+    response.status(400).json({ success: false, errors, error: "Validation failed" });
     return;
   }
 
   try {
     const campaign = await prisma.campaign.create({
       data: {
-        title: title.trim(),
-        description: description.trim(),
-        productUrl: productUrl.trim(),
-        totalBudget: budget,
-        remainingBudget: budget,
-        endsAt: campaignEnd,
+        title: (title as string).trim(),
+        description: (description as string).trim(),
+        budget: budgetValue,
+        budgetToken: "XLM",
+        platforms: (parsedPlatforms as string[]),
+        requiredKeywords: (requiredKeywords as string[]).map((k: string) => k.trim()),
+        startDate: parsedStartDate ?? null,
+        endDate: parsedEndDate!,
+        endsAt: parsedEndDate!,
+        totalBudget: budgetNum,
+        remainingBudget: budgetNum,
+        status: CampaignStatus.DRAFT,
         founderId: request.user.id,
-        stellarWalletPublicKey: founderPublicKey,
-        stellarWalletSecretKeyEncrypted: null
-      }
-    });
-
-    const deployment = await deployCampaignContract(founderSecret, budget);
-
-    const updatedCampaign = await prisma.campaign.update({
-      where: {
-        id: campaign.id
-      },
-      data: {
-        stellarContractId: deployment.contractId,
-        fundingTxHash: deployment.txHash
+        founderWalletAddress: request.user.walletAddress ?? null,
+        stellarWalletPublicKey: request.user.walletAddress ?? ""
       }
     });
 
     sendSuccess(
       response,
       {
-        id: updatedCampaign.id,
-        title: updatedCampaign.title,
-        description: updatedCampaign.description,
-        productUrl: updatedCampaign.productUrl,
-        totalBudget: toNumber(updatedCampaign.totalBudget),
-        remainingBudget: toNumber(updatedCampaign.remainingBudget),
-        status: updatedCampaign.status,
-        founderId: updatedCampaign.founderId,
-        endsAt: updatedCampaign.endsAt.toISOString(),
-        createdAt: updatedCampaign.createdAt.toISOString(),
-        walletAddress: updatedCampaign.stellarWalletPublicKey,
-        contractId: updatedCampaign.stellarContractId,
-        fundingTxHash: updatedCampaign.fundingTxHash,
-        contractExplorerUrl: updatedCampaign.stellarContractId
-          ? `https://testnet.stellar.expert/explorer/testnet/contract/${updatedCampaign.stellarContractId}`
-          : null,
-        fundingTxUrl: getTxUrl(updatedCampaign.fundingTxHash)
+        id: campaign.id,
+        title: campaign.title,
+        description: campaign.description,
+        budget: campaign.budget,
+        budgetToken: campaign.budgetToken,
+        platforms: campaign.platforms,
+        requiredKeywords: campaign.requiredKeywords,
+        startDate: campaign.startDate?.toISOString() ?? null,
+        endDate: campaign.endDate?.toISOString() ?? null,
+        status: campaign.status,
+        founderId: campaign.founderId,
+        founderWalletAddress: campaign.founderWalletAddress,
+        contractId: campaign.contractId,
+        createdAt: campaign.createdAt.toISOString(),
+        updatedAt: campaign.updatedAt.toISOString()
       },
       201
     );
   } catch (error) {
-    console.error("Failed to create campaign and deploy Soroban contract", error);
+    console.error("Failed to create campaign draft", error);
     sendError(response, "Failed to create campaign", 500);
   }
 });
 
-campaignsRouter.get("/", async (_request, response) => {
+// ---------------------------------------------------------------------------
+// GET /api/campaigns — public ACTIVE campaigns + founder's own campaigns
+// ---------------------------------------------------------------------------
+
+campaignsRouter.get("/", async (request, response) => {
+  // Try to extract the authenticated user (optional — no hard failure)
+  let authenticatedUserId: string | null = null;
+  let authenticatedUserRole: string | null = null;
+
+  if (request.user) {
+    authenticatedUserId = request.user.id;
+    authenticatedUserRole = request.user.role;
+  }
+
+  // Founders see all their own campaigns; everyone else sees only ACTIVE
+  if (authenticatedUserRole === "FOUNDER" && authenticatedUserId) {
+    const [activeCampaigns, founderCampaigns] = await Promise.all([
+      prisma.campaign.findMany({
+        where: { status: CampaignStatus.ACTIVE },
+        include: { _count: { select: { posts: true } } },
+        orderBy: { createdAt: "desc" }
+      }),
+      prisma.campaign.findMany({
+        where: { founderId: authenticatedUserId },
+        include: { _count: { select: { posts: true } } },
+        orderBy: { createdAt: "desc" }
+      })
+    ]);
+
+    // Merge: founder's own campaigns + active campaigns not already in founder list
+    const founderIds = new Set(founderCampaigns.map((c) => c.id));
+    const merged = [
+      ...founderCampaigns,
+      ...activeCampaigns.filter((c) => !founderIds.has(c.id))
+    ];
+
+    sendSuccess(
+      response,
+      merged.map((campaign) => ({
+        id: campaign.id,
+        title: campaign.title,
+        description: campaign.description,
+        productUrl: campaign.productUrl,
+        budget: campaign.budget,
+        budgetToken: campaign.budgetToken,
+        platforms: campaign.platforms,
+        requiredKeywords: campaign.requiredKeywords,
+        startDate: campaign.startDate?.toISOString() ?? null,
+        endDate: campaign.endDate?.toISOString() ?? null,
+        totalBudget: toNumber(campaign.totalBudget),
+        remainingBudget: toNumber(campaign.remainingBudget),
+        status: campaign.status,
+        founderId: campaign.founderId,
+        founderWalletAddress: campaign.founderWalletAddress,
+        contractId: campaign.contractId ?? campaign.stellarContractId,
+        endsAt: campaign.endsAt?.toISOString() ?? null,
+        createdAt: campaign.createdAt.toISOString(),
+        updatedAt: campaign.updatedAt.toISOString(),
+        postCount: campaign._count.posts,
+        isOwn: campaign.founderId === authenticatedUserId
+      }))
+    );
+
+    return;
+  }
+
+  // Public: only ACTIVE campaigns
   const campaigns = await prisma.campaign.findMany({
-    where: {
-      status: CampaignStatus.ACTIVE
-    },
-    include: {
-      _count: {
-        select: {
-          posts: true
-        }
-      }
-    },
-    orderBy: {
-      createdAt: "desc"
-    }
+    where: { status: CampaignStatus.ACTIVE },
+    include: { _count: { select: { posts: true } } },
+    orderBy: { createdAt: "desc" }
   });
 
   sendSuccess(
@@ -170,17 +397,28 @@ campaignsRouter.get("/", async (_request, response) => {
       title: campaign.title,
       description: campaign.description,
       productUrl: campaign.productUrl,
+      budget: campaign.budget,
+      budgetToken: campaign.budgetToken,
+      platforms: campaign.platforms,
+      requiredKeywords: campaign.requiredKeywords,
+      startDate: campaign.startDate?.toISOString() ?? null,
+      endDate: campaign.endDate?.toISOString() ?? null,
       totalBudget: toNumber(campaign.totalBudget),
       remainingBudget: toNumber(campaign.remainingBudget),
       status: campaign.status,
       founderId: campaign.founderId,
-      endsAt: campaign.endsAt.toISOString(),
+      contractId: campaign.contractId ?? campaign.stellarContractId,
+      endsAt: campaign.endsAt?.toISOString() ?? null,
       createdAt: campaign.createdAt.toISOString(),
-      postCount: campaign._count.posts,
-      contractId: campaign.stellarContractId
+      updatedAt: campaign.updatedAt.toISOString(),
+      postCount: campaign._count.posts
     }))
   );
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/campaigns/:id
+// ---------------------------------------------------------------------------
 
 campaignsRouter.get("/:id", async (request, response) => {
   const campaignId = parseIdParam(request.params.id);
@@ -191,16 +429,8 @@ campaignsRouter.get("/:id", async (request, response) => {
   }
 
   const campaign = await prisma.campaign.findUnique({
-    where: {
-      id: campaignId
-    },
-    include: {
-      _count: {
-        select: {
-          posts: true
-        }
-      }
-    }
+    where: { id: campaignId },
+    include: { _count: { select: { posts: true } } }
   });
 
   if (!campaign) {
@@ -209,19 +439,11 @@ campaignsRouter.get("/:id", async (request, response) => {
   }
 
   const topScore = await prisma.score.findFirst({
-    where: {
-      campaignId: campaign.id
-    },
-    orderBy: {
-      totalScore: "desc"
-    },
+    where: { campaignId: campaign.id },
+    orderBy: { totalScore: "desc" },
     include: {
       user: {
-        select: {
-          id: true,
-          name: true,
-          avatar: true
-        }
+        select: { id: true, name: true, avatar: true }
       }
     }
   });
@@ -231,15 +453,23 @@ campaignsRouter.get("/:id", async (request, response) => {
     title: campaign.title,
     description: campaign.description,
     productUrl: campaign.productUrl,
+    budget: campaign.budget,
+    budgetToken: campaign.budgetToken,
+    platforms: campaign.platforms,
+    requiredKeywords: campaign.requiredKeywords,
+    startDate: campaign.startDate?.toISOString() ?? null,
+    endDate: campaign.endDate?.toISOString() ?? null,
     totalBudget: toNumber(campaign.totalBudget),
     remainingBudget: toNumber(campaign.remainingBudget),
     status: campaign.status,
     founderId: campaign.founderId,
+    founderWalletAddress: campaign.founderWalletAddress,
     walletAddress: campaign.stellarWalletPublicKey,
-    contractId: campaign.stellarContractId,
+    contractId: campaign.contractId ?? campaign.stellarContractId,
     fundingTxHash: campaign.fundingTxHash,
-    endsAt: campaign.endsAt.toISOString(),
+    endsAt: campaign.endsAt?.toISOString() ?? null,
     createdAt: campaign.createdAt.toISOString(),
+    updatedAt: campaign.updatedAt.toISOString(),
     stats: {
       postCount: campaign._count.posts,
       remainingBudget: toNumber(campaign.remainingBudget),
@@ -255,17 +485,15 @@ campaignsRouter.get("/:id", async (request, response) => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// PATCH /api/campaigns/:id — update status, contractId, stellarTxHash (founders only)
+// ---------------------------------------------------------------------------
+
 campaignsRouter.patch("/:id", requireAuth, requireRole("FOUNDER"), async (request, response) => {
   const campaignId = parseIdParam(request.params.id);
-  const status = parseCampaignStatus((request.body as { status?: string }).status);
 
   if (!campaignId) {
     sendError(response, "Campaign id is required", 400);
-    return;
-  }
-
-  if (!status) {
-    sendError(response, "status must be ACTIVE, PAUSED, or ENDED", 400);
     return;
   }
 
@@ -274,13 +502,30 @@ campaignsRouter.patch("/:id", requireAuth, requireRole("FOUNDER"), async (reques
     return;
   }
 
+  const body = request.body as {
+    status?: string;
+    contractId?: string;
+    stellarTxHash?: string;
+  };
+
+  const status = parseCampaignStatus(body.status);
+  const incomingContractId = typeof body.contractId === "string" ? body.contractId.trim() : undefined;
+  const incomingTxHash = typeof body.stellarTxHash === "string" ? body.stellarTxHash.trim() : undefined;
+
+  // At least one field must be provided
+  if (!status && !incomingContractId && !incomingTxHash) {
+    sendError(response, "Provide at least one of: status, contractId, stellarTxHash", 400);
+    return;
+  }
+
+  if (body.status !== undefined && !status) {
+    sendError(response, "status must be DRAFT, ACTIVE, PAUSED, COMPLETED, or ENDED", 400);
+    return;
+  }
+
   const existingCampaign = await prisma.campaign.findUnique({
-    where: {
-      id: campaignId
-    },
-    select: {
-      founderId: true
-    }
+    where: { id: campaignId },
+    select: { founderId: true, budget: true, contractId: true }
   });
 
   if (!existingCampaign) {
@@ -293,20 +538,137 @@ campaignsRouter.patch("/:id", requireAuth, requireRole("FOUNDER"), async (reques
     return;
   }
 
-  const campaign = await prisma.campaign.update({
-    where: {
-      id: campaignId
-    },
-    data: {
-      status
+  // When activating, verify on-chain funding if a contractId is available
+  const resolvedContractId = incomingContractId ?? existingCampaign.contractId ?? null;
+
+  if (status === CampaignStatus.ACTIVE && resolvedContractId) {
+    const expectedBudget = BigInt(Math.round(Number(existingCampaign.budget) * 10_000_000));
+    try {
+      const funded = await verifyCampaignFunded(resolvedContractId, expectedBudget);
+      if (!funded) {
+        sendError(
+          response,
+          `On-chain balance does not match expected budget of ${existingCampaign.budget} XLM. ` +
+            "Ensure the contract is funded before activating.",
+          400
+        );
+        return;
+      }
+    } catch (err) {
+      // If verification fails (e.g. RPC unavailable), log and proceed — don't block activation
+      console.warn("verifyCampaignFunded failed, proceeding anyway:", err);
     }
+  }
+
+  const updateData: Record<string, unknown> = {};
+  if (status) updateData.status = status;
+  if (incomingContractId) {
+    updateData.contractId = incomingContractId;
+    updateData.stellarContractId = incomingContractId;
+  }
+  if (incomingTxHash) updateData.fundingTxHash = incomingTxHash;
+
+  const campaign = await prisma.campaign.update({
+    where: { id: campaignId },
+    data: updateData
   });
 
   sendSuccess(response, {
     id: campaign.id,
-    status: campaign.status
+    status: campaign.status,
+    contractId: campaign.contractId ?? campaign.stellarContractId,
+    fundingTxHash: campaign.fundingTxHash,
+    fundingTxUrl: getTxUrl(campaign.fundingTxHash),
+    contractExplorerUrl: campaign.contractId
+      ? `https://testnet.stellar.expert/explorer/testnet/contract/${campaign.contractId}`
+      : null
   });
 });
+
+// ---------------------------------------------------------------------------
+// POST /api/campaigns/:id/deploy-contract
+// Deploys the Soroban contract (admin pays) and returns an unsigned XDR
+// for the founder to sign with Freighter.
+// ---------------------------------------------------------------------------
+
+campaignsRouter.post("/:id/deploy-contract", requireAuth, requireRole("FOUNDER"), async (request, response) => {
+  const campaignId = parseIdParam(request.params.id);
+
+  if (!campaignId) {
+    sendError(response, "Campaign id is required", 400);
+    return;
+  }
+
+  if (!request.user) {
+    sendError(response, "Unauthorized", 401);
+    return;
+  }
+
+  const { founderPublicKey } = request.body as { founderPublicKey?: string };
+
+  if (!founderPublicKey || !StellarSdk.StrKey.isValidEd25519PublicKey(founderPublicKey)) {
+    sendError(response, "founderPublicKey must be a valid Stellar public key", 400);
+    return;
+  }
+
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: campaignId },
+    select: { id: true, founderId: true, budget: true, contractId: true, stellarContractId: true }
+  });
+
+  if (!campaign) {
+    sendError(response, "Campaign not found", 404);
+    return;
+  }
+
+  if (campaign.founderId !== request.user.id) {
+    sendError(response, "Forbidden", 403);
+    return;
+  }
+
+  // If already deployed, return the existing contract + a fresh unsigned XDR
+  const existingContractId = campaign.contractId ?? campaign.stellarContractId;
+
+  try {
+    const budgetXlm = Number(campaign.budget);
+
+    if (budgetXlm <= 0) {
+      sendError(response, "Campaign budget must be greater than 0", 400);
+      return;
+    }
+
+    // Deploy contract (admin pays deployment fee) and build unsigned initialize() XDR
+    const result = await buildInitializeTx({
+      founderPublicKey,
+      totalBudgetXLM: budgetXlm,
+      existingContractId: existingContractId ?? undefined
+    });
+
+    // Persist the contract id immediately so it's available even if the founder
+    // abandons the signing flow and comes back later.
+    await prisma.campaign.update({
+      where: { id: campaign.id },
+      data: {
+        contractId: result.contractId,
+        stellarContractId: result.contractId
+      }
+    });
+
+    sendSuccess(response, {
+      contractId: result.contractId,
+      xdr: result.xdr,
+      networkPassphrase: result.networkPassphrase
+    });
+  } catch (error) {
+    console.error("deploy-contract failed", error);
+    sendError(response, error instanceof Error ? error.message : "Contract deployment failed", 500);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/campaigns/:id/leaderboard
+// Returns top 50 participants with rank, score, estimated earnings, platforms
+// ---------------------------------------------------------------------------
 
 campaignsRouter.get("/:id/leaderboard", async (request, response) => {
   const campaignId = parseIdParam(request.params.id);
@@ -317,12 +679,8 @@ campaignsRouter.get("/:id/leaderboard", async (request, response) => {
   }
 
   const campaign = await prisma.campaign.findUnique({
-    where: {
-      id: campaignId
-    },
-    select: {
-      id: true
-    }
+    where: { id: campaignId },
+    select: { id: true }
   });
 
   if (!campaign) {
@@ -330,10 +688,13 @@ campaignsRouter.get("/:id/leaderboard", async (request, response) => {
     return;
   }
 
-  const leaderboard = await getTopN(campaign.id, 10);
-
+  const leaderboard = await getTopN(campaign.id, 50);
   sendSuccess(response, leaderboard);
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/campaigns/:id/payout (SSE) — founders only
+// ---------------------------------------------------------------------------
 
 campaignsRouter.get("/:id/payout", requireAuth, requireRole("FOUNDER"), async (request, response) => {
   const campaignId = parseIdParam(request.params.id);
@@ -367,14 +728,8 @@ campaignsRouter.get("/:id/payout", requireAuth, requireRole("FOUNDER"), async (r
   }
 
   const campaign = await prisma.campaign.findUnique({
-    where: {
-      id: campaignId
-    },
-    select: {
-      id: true,
-      founderId: true,
-      stellarContractId: true
-    }
+    where: { id: campaignId },
+    select: { id: true, founderId: true, stellarContractId: true, contractId: true }
   });
 
   if (!campaign) {
@@ -387,7 +742,9 @@ campaignsRouter.get("/:id/payout", requireAuth, requireRole("FOUNDER"), async (r
     return;
   }
 
-  if (!campaign.stellarContractId) {
+  const resolvedContractId = campaign.contractId ?? campaign.stellarContractId;
+
+  if (!resolvedContractId) {
     sendError(response, "Campaign is missing a Soroban contract id", 400);
     return;
   }
@@ -399,14 +756,10 @@ campaignsRouter.get("/:id/payout", requireAuth, requireRole("FOUNDER"), async (r
   response.flushHeaders();
 
   try {
-    const endTx = await endCampaign(campaign.stellarContractId, founderSecret);
+    const endTx = await endCampaign(resolvedContractId, founderSecret);
     await prisma.campaign.update({
-      where: {
-        id: campaign.id
-      },
-      data: {
-        status: CampaignStatus.ENDED
-      }
+      where: { id: campaign.id },
+      data: { status: CampaignStatus.ENDED }
     });
 
     writeSse(response, "campaign-ended", {
@@ -416,26 +769,14 @@ campaignsRouter.get("/:id/payout", requireAuth, requireRole("FOUNDER"), async (r
 
     const groupedScores = await prisma.score.groupBy({
       by: ["userId"],
-      where: {
-        campaignId: campaign.id
-      },
-      _sum: {
-        totalScore: true
-      }
+      where: { campaignId: campaign.id },
+      _sum: { totalScore: true }
     });
 
     const userIds = groupedScores.map((entry) => entry.userId);
     const users = await prisma.user.findMany({
-      where: {
-        id: {
-          in: userIds
-        }
-      },
-      select: {
-        id: true,
-        name: true,
-        walletAddress: true
-      }
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, walletAddress: true }
     });
 
     const usersById = new Map(users.map((user) => [user.id, user]));
@@ -450,12 +791,7 @@ campaignsRouter.get("/:id/payout", requireAuth, requireRole("FOUNDER"), async (r
 
       if (!user.walletAddress) {
         const payout = await prisma.payout.create({
-          data: {
-            userId: user.id,
-            campaignId: campaign.id,
-            amount: 0,
-            status: "FAILED"
-          }
+          data: { userId: user.id, campaignId: campaign.id, amount: 0, status: "FAILED" }
         });
 
         writeSse(response, "payout", {
@@ -474,12 +810,7 @@ campaignsRouter.get("/:id/payout", requireAuth, requireRole("FOUNDER"), async (r
       const creatorSecret = creatorSecrets?.[user.id];
       if (!creatorSecret) {
         const payout = await prisma.payout.create({
-          data: {
-            userId: user.id,
-            campaignId: campaign.id,
-            amount: 0,
-            status: "FAILED"
-          }
+          data: { userId: user.id, campaignId: campaign.id, amount: 0, status: "FAILED" }
         });
 
         writeSse(response, "payout", {
@@ -496,7 +827,7 @@ campaignsRouter.get("/:id/payout", requireAuth, requireRole("FOUNDER"), async (r
       }
 
       try {
-        const payoutResult = await triggerCreatorPayout(campaign.stellarContractId, creatorSecret);
+        const payoutResult = await triggerCreatorPayout(resolvedContractId, creatorSecret);
         const payout = await prisma.payout.create({
           data: {
             userId: user.id,
@@ -518,12 +849,7 @@ campaignsRouter.get("/:id/payout", requireAuth, requireRole("FOUNDER"), async (r
         });
       } catch (error) {
         const payout = await prisma.payout.create({
-          data: {
-            userId: user.id,
-            campaignId: campaign.id,
-            amount: 0,
-            status: "FAILED"
-          }
+          data: { userId: user.id, campaignId: campaign.id, amount: 0, status: "FAILED" }
         });
 
         writeSse(response, "payout", {
@@ -539,19 +865,15 @@ campaignsRouter.get("/:id/payout", requireAuth, requireRole("FOUNDER"), async (r
       }
     }
 
-    const balance = await getContractBalance(campaign.stellarContractId);
+    const balance = await getContractBalance(resolvedContractId);
     await prisma.campaign.update({
-      where: {
-        id: campaign.id
-      },
-      data: {
-        remainingBudget: balance
-      }
+      where: { id: campaign.id },
+      data: { remainingBudget: balance }
     });
 
     writeSse(response, "done", {
       campaignId: campaign.id,
-      contractId: campaign.stellarContractId,
+      contractId: resolvedContractId,
       balanceXLM: balance
     });
   } catch (error) {
@@ -563,6 +885,10 @@ campaignsRouter.get("/:id/payout", requireAuth, requireRole("FOUNDER"), async (r
   }
 });
 
+// ---------------------------------------------------------------------------
+// GET /api/campaigns/:id/contract-info
+// ---------------------------------------------------------------------------
+
 campaignsRouter.get("/:id/contract-info", requireAuth, async (request, response) => {
   const campaignId = parseIdParam(request.params.id);
 
@@ -572,12 +898,8 @@ campaignsRouter.get("/:id/contract-info", requireAuth, async (request, response)
   }
 
   const campaign = await prisma.campaign.findUnique({
-    where: {
-      id: campaignId
-    },
-    select: {
-      stellarContractId: true
-    }
+    where: { id: campaignId },
+    select: { stellarContractId: true, contractId: true }
   });
 
   if (!campaign) {
@@ -585,28 +907,34 @@ campaignsRouter.get("/:id/contract-info", requireAuth, async (request, response)
     return;
   }
 
-  if (!campaign.stellarContractId) {
+  const resolvedContractId = campaign.contractId ?? campaign.stellarContractId;
+
+  if (!resolvedContractId) {
     sendError(response, "Campaign is missing a Soroban contract id", 400);
     return;
   }
 
   try {
     const [balance, contractInfo] = await Promise.all([
-      getContractBalance(campaign.stellarContractId),
-      getCampaignInfo(campaign.stellarContractId)
+      getContractBalance(resolvedContractId),
+      getCampaignInfo(resolvedContractId)
     ]);
 
     sendSuccess(response, {
-      contractId: campaign.stellarContractId,
+      contractId: resolvedContractId,
       balance,
       status: contractInfo.status,
       creatorScores: contractInfo.creatorScores,
-      explorerUrl: `https://testnet.stellar.expert/explorer/testnet/contract/${campaign.stellarContractId}`
+      explorerUrl: `https://testnet.stellar.expert/explorer/testnet/contract/${resolvedContractId}`
     });
   } catch (error) {
     sendError(response, error instanceof Error ? error.message : "Failed to fetch on-chain contract info", 500);
   }
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/campaigns/:id/payouts
+// ---------------------------------------------------------------------------
 
 campaignsRouter.get("/:id/payouts", requireAuth, async (request, response) => {
   const campaignId = parseIdParam(request.params.id);
@@ -622,13 +950,8 @@ campaignsRouter.get("/:id/payouts", requireAuth, async (request, response) => {
   }
 
   const campaign = await prisma.campaign.findUnique({
-    where: {
-      id: campaignId
-    },
-    select: {
-      id: true,
-      founderId: true
-    }
+    where: { id: campaignId },
+    select: { id: true, founderId: true }
   });
 
   if (!campaign) {
@@ -642,20 +965,9 @@ campaignsRouter.get("/:id/payouts", requireAuth, async (request, response) => {
   }
 
   const payouts = await prisma.payout.findMany({
-    where: {
-      campaignId: campaign.id
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true
-        }
-      }
-    },
-    orderBy: {
-      createdAt: "desc"
-    }
+    where: { campaignId: campaign.id },
+    include: { user: { select: { id: true, name: true } } },
+    orderBy: { createdAt: "desc" }
   });
 
   sendSuccess(

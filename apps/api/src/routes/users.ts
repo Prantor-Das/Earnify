@@ -3,9 +3,9 @@ import { Router } from "express";
 import { prisma } from "@earnify/db";
 import * as StellarSdk from "@stellar/stellar-sdk";
 
-import { requireAuth } from "../../middleware/auth";
-import { triggerCreatorPayout } from "../services/sorobanClient";
-import { sendError, sendSuccess } from "../utils/api-response";
+import { requireAuth } from "../../middleware/auth.ts";
+import { triggerCreatorPayout } from "../services/sorobanClient.ts";
+import { sendError, sendSuccess } from "../utils/api-response.ts";
 
 const usersRouter = Router();
 
@@ -132,6 +132,30 @@ usersRouter.patch("/:id/wallet", requireAuth, async (request, response) => {
       id: true,
       walletAddress: true
     }
+  });
+
+  sendSuccess(response, updatedUser);
+});
+
+// PATCH /api/users/me/wallet — convenience endpoint for the authenticated user
+// (used by WalletProvider after Freighter connection)
+usersRouter.patch("/me/wallet", requireAuth, async (request, response) => {
+  if (!request.user) {
+    sendError(response, "Unauthorized", 401);
+    return;
+  }
+
+  const walletAddress = (request.body as { walletAddress?: string }).walletAddress?.trim();
+
+  if (!walletAddress || !isValidStellarPublicKey(walletAddress)) {
+    sendError(response, "walletAddress must be a valid Stellar public key", 400);
+    return;
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: request.user.id },
+    data: { walletAddress },
+    select: { id: true, walletAddress: true }
   });
 
   sendSuccess(response, updatedUser);

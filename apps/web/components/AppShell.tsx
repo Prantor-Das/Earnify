@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AuthProvider } from "./auth/AuthProvider";
 import { Navbar } from "./Navbar";
 import { ToastProvider } from "./toast/ToastProvider";
+import { WalletProvider } from "./wallet/WalletProvider";
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -27,10 +28,12 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthProvider>
-      <ToastProvider>
-        <Navbar onToggleTheme={toggleTheme} isDarkMode={isDarkMode} />
-        {children}
-      </ToastProvider>
+      <WalletProvider>
+        <ToastProvider>
+          <Navbar onToggleTheme={toggleTheme} isDarkMode={isDarkMode} />
+          {children}
+        </ToastProvider>
+      </WalletProvider>
     </AuthProvider>
   );
 }

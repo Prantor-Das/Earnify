@@ -1,6 +1,6 @@
 import type { ErrorRequestHandler, RequestHandler } from "express";
 
-import { sendError } from "../utils/api-response";
+import { sendError } from "../utils/api-response.ts";
 
 const notFoundHandler: RequestHandler = (request, response) => {
   sendError(response, `Route ${request.method} ${request.originalUrl} not found`, 404, "ROUTE_NOT_FOUND");

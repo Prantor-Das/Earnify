@@ -22,7 +22,17 @@ const contractWasmPath =
 
 const sdk = StellarSdk as unknown as {
   Horizon: { Server: new (url: string) => any };
-  SorobanRpc: {
+  SorobanRpc?: {
+    Server: new (url: string, options?: { allowHttp?: boolean }) => any;
+    Api: {
+      isSimulationError: (value: unknown) => boolean;
+      isSimulationRestore: (value: unknown) => boolean;
+      isSimulationSuccess: (value: unknown) => boolean;
+      isGetTransactionPending: (value: unknown) => boolean;
+    };
+    assembleTransaction: (tx: any, simulation: unknown) => any;
+  };
+  rpc?: {
     Server: new (url: string, options?: { allowHttp?: boolean }) => any;
     Api: {
       isSimulationError: (value: unknown) => boolean;
@@ -56,7 +66,13 @@ const sdk = StellarSdk as unknown as {
 };
 
 const horizon = new sdk.Horizon.Server(horizonUrl);
-const sorobanRpc = new sdk.SorobanRpc.Server(sorobanRpcUrl, {
+const sorobanNamespace = sdk.SorobanRpc ?? sdk.rpc;
+if (!sorobanNamespace) {
+  throw new Error("Soroban RPC namespace not found in @stellar/stellar-sdk");
+}
+// sorobanNamespace is guaranteed non-null from here — the throw above ensures it.
+const rpcNs = sorobanNamespace;
+const sorobanRpc = new rpcNs.Server(sorobanRpcUrl, {
   allowHttp: sorobanRpcUrl.startsWith("http://")
 });
 
@@ -112,11 +128,11 @@ async function withSorobanInvocation(params: {
     .build();
 
   const simulation = await sorobanRpc.simulateTransaction(tx);
-  if (sdk.SorobanRpc.Api.isSimulationError(simulation)) {
+  if (rpcNs.Api.isSimulationError(simulation)) {
     throw new Error(`Simulation failed for ${params.method}`);
   }
 
-  const assembled = sdk.SorobanRpc.assembleTransaction(tx, simulation).build();
+  const assembled = rpcNs.assembleTransaction(tx, simulation).build();
   assembled.sign(sourceKeypair);
 
   const submission = await sorobanRpc.sendTransaction(assembled);
@@ -167,7 +183,7 @@ async function invokeReadonly(params: {
     .build();
 
   const simulation = await sorobanRpc.simulateTransaction(tx);
-  if (!sdk.SorobanRpc.Api.isSimulationSuccess(simulation)) {
+  if (!rpcNs.Api.isSimulationSuccess(simulation)) {
     throw new Error(`Simulation failed for readonly call ${params.method}`);
   }
 
@@ -280,6 +296,7 @@ async function deployCampaignContract(
 
   const contractId = parseContractId(stdout);
   const founderKeypair = sdk.Keypair.fromSecret(founderSecret);
+  const adminPublicKey = sdk.Keypair.fromSecret(admin).publicKey();
 
   const initialize = await withSorobanInvocation({
     campaignContractId: contractId,
@@ -287,6 +304,7 @@ async function deployCampaignContract(
     sourceSecret: founderSecret,
     args: [
       sdk.nativeToScVal(founderKeypair.publicKey(), { type: "address" }),
+      sdk.nativeToScVal(adminPublicKey, { type: "address" }),
       sdk.nativeToScVal(toStroops(totalBudgetXLM), { type: "i128" })
     ]
   });
@@ -416,7 +434,90 @@ async function getContractBalance(contractId: string): Promise<number> {
   return campaignInfo.remainingBudgetXLM;
 }
 
+// ---------------------------------------------------------------------------
+// verifyCampaignFunded — checks on-chain remaining budget >= expectedBudget
+// ---------------------------------------------------------------------------
+
+async function verifyCampaignFunded(contractId: string, expectedBudgetStroops: bigint): Promise<boolean> {
+  try {
+    const info = await getCampaignInfo(contractId);
+    const remainingStroops = BigInt(Math.round(info.remainingBudgetXLM * 10_000_000));
+    return remainingStroops >= expectedBudgetStroops;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// buildInitializeTx — deploys contract (if needed) and returns an unsigned
+// initialize() XDR for the founder to sign with Freighter.
+// ---------------------------------------------------------------------------
+
+async function buildInitializeTx(params: {
+  founderPublicKey: string;
+  totalBudgetXLM: number;
+  existingContractId?: string;
+}): Promise<{ contractId: string; xdr: string; networkPassphrase: string }> {
+  const { founderPublicKey, totalBudgetXLM, existingContractId } = params;
+
+  if (totalBudgetXLM <= 0) {
+    throw new Error("totalBudgetXLM must be a positive number");
+  }
+
+  const admin = requireAdminSecret();
+  await fundAdminIfNeeded(admin);
+
+  // Deploy a fresh contract if we don't have one yet
+  let contractId = existingContractId;
+  if (!contractId) {
+    const { stdout } = await execFileAsync("stellar", [
+      "contract",
+      "deploy",
+      "--wasm",
+      contractWasmPath,
+      "--source",
+      admin,
+      "--network",
+      networkName
+    ]);
+    contractId = parseContractId(stdout);
+  }
+
+  // Build the initialize() invocation as an unsigned transaction
+  // The founder will sign it with Freighter — their key authorises the call.
+  const adminPublicKey = sdk.Keypair.fromSecret(admin).publicKey();
+  const founderAccount = await horizon.loadAccount(founderPublicKey);
+  const contract = new sdk.Contract(contractId);
+
+  const tx = new sdk.TransactionBuilder(founderAccount, {
+    fee: "1000000",
+    networkPassphrase
+  })
+    .addOperation(
+      contract.call(
+        "initialize",
+        sdk.nativeToScVal(founderPublicKey, { type: "address" }),
+        sdk.nativeToScVal(adminPublicKey, { type: "address" }),
+        sdk.nativeToScVal(toStroops(totalBudgetXLM), { type: "i128" })
+      )
+    )
+    .setTimeout(60)
+    .build();
+
+  // Simulate to populate the auth + footprint so Freighter can sign it
+  const simulation = await sorobanRpc.simulateTransaction(tx);
+  if (rpcNs.Api.isSimulationError(simulation)) {
+    throw new Error("Simulation of initialize() failed — check contract state");
+  }
+
+  const assembled = rpcNs.assembleTransaction(tx, simulation).build();
+  const xdr = assembled.toEnvelope().toXDR("base64");
+
+  return { contractId, xdr, networkPassphrase };
+}
+
 export {
+  buildInitializeTx,
   deployCampaignContract,
   endCampaign,
   getCampaignInfo,
@@ -425,5 +526,6 @@ export {
   getPayoutEstimate,
   triggerCreatorPayout,
   updateCreatorScore,
+  verifyCampaignFunded,
   submitClassicPayment
 };

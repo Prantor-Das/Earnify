@@ -6,8 +6,8 @@ import type { SignOptions } from "jsonwebtoken";
 import { prisma } from "@earnify/db";
 import type { AuthUser } from "@earnify/shared";
 
-import { requireAuth } from "../../middleware/auth";
-import { sendError, sendSuccess } from "../utils/api-response";
+import { requireAuth } from "../../middleware/auth.ts";
+import { sendError, sendSuccess } from "../utils/api-response.ts";
 
 const authRouter = Router();
 

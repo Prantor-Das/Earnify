@@ -6,8 +6,18 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONTRACT_DIR="$ROOT_DIR/contracts/earnify-campaign"
 ENV_FILE="$ROOT_DIR/.env"
 
+if [[ -z "${STELLAR_ADMIN_SECRET:-}" && -f "$ENV_FILE" ]]; then
+  STELLAR_ADMIN_SECRET="$(grep -E '^STELLAR_ADMIN_SECRET=' "$ENV_FILE" | tail -n 1 | cut -d= -f2- || true)"
+  export STELLAR_ADMIN_SECRET
+fi
+
 if [[ -z "${STELLAR_ADMIN_SECRET:-}" ]]; then
-  echo "Error: STELLAR_ADMIN_SECRET is required in your shell environment."
+  echo "Error: STELLAR_ADMIN_SECRET is required (env var or .env)."
+  exit 1
+fi
+
+if [[ ! "$STELLAR_ADMIN_SECRET" =~ ^S[A-Z2-7]{55}$ ]]; then
+  echo "Error: STELLAR_ADMIN_SECRET must be a valid Stellar secret seed (starts with 'S')."
   exit 1
 fi
 
@@ -25,8 +35,8 @@ echo "Building Soroban contract..."
 cd "$CONTRACT_DIR"
 stellar contract build
 
-WASM_PATH="$CONTRACT_DIR/target/wasm32-unknown-unknown/release/earnify_campaign.wasm"
-OPT_WASM_PATH="$CONTRACT_DIR/target/wasm32-unknown-unknown/release/earnify_campaign.optimized.wasm"
+WASM_PATH="$CONTRACT_DIR/target/wasm32v1-none/release/earnify_campaign.wasm"
+OPT_WASM_PATH="$CONTRACT_DIR/target/wasm32v1-none/release/earnify_campaign.optimized.wasm"
 
 echo "Optimizing WASM..."
 stellar contract optimize --wasm "$WASM_PATH"
@@ -60,8 +70,14 @@ if [[ -f "$ENV_FILE" ]]; then
   else
     printf "\nSOROBAN_CONTRACT_ID=%s\n" "$CONTRACT_ID" >>"$ENV_FILE"
   fi
+  if grep -q '^SOROBAN_WASM_PATH=' "$ENV_FILE"; then
+    sed -i.bak "s|^SOROBAN_WASM_PATH=.*|SOROBAN_WASM_PATH=contracts/earnify-campaign/target/wasm32v1-none/release/earnify_campaign.optimized.wasm|" "$ENV_FILE"
+  else
+    printf "SOROBAN_WASM_PATH=contracts/earnify-campaign/target/wasm32v1-none/release/earnify_campaign.optimized.wasm\n" >>"$ENV_FILE"
+  fi
 else
   printf "SOROBAN_CONTRACT_ID=%s\n" "$CONTRACT_ID" >"$ENV_FILE"
+  printf "SOROBAN_WASM_PATH=contracts/earnify-campaign/target/wasm32v1-none/release/earnify_campaign.optimized.wasm\n" >>"$ENV_FILE"
 fi
 
 echo "Updated .env with SOROBAN_CONTRACT_ID=$CONTRACT_ID"

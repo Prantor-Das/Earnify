@@ -3,9 +3,9 @@ import { Router } from "express";
 import { CampaignStatus, PostStatus, prisma } from "@earnify/db";
 import type { SocialPlatform } from "@earnify/shared";
 
-import { requireAuth, requireRole } from "../../middleware/auth";
-import { runVerificationPipeline } from "../services/verificationEngine";
-import { sendError, sendSuccess } from "../utils/api-response";
+import { requireAuth, requireRole } from "../../middleware/auth.ts";
+import { runVerificationPipeline } from "../services/verificationEngine.ts";
+import { sendError, sendSuccess } from "../utils/api-response.ts";
 
 const postsRouter = Router();
 

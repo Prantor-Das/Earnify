@@ -2,8 +2,8 @@ import { Router } from "express";
 
 import { CampaignStatus, prisma } from "@earnify/db";
 
-import { requireAuth } from "../../middleware/auth";
-import { sendError, sendSuccess } from "../utils/api-response";
+import { requireAuth } from "../../middleware/auth.ts";
+import { sendError, sendSuccess } from "../utils/api-response.ts";
 
 const dashboardRouter = Router();
 

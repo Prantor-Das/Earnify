@@ -11,6 +11,8 @@ import { Skeleton } from "../../components/Skeleton";
 import { useAuth } from "../../components/auth/AuthProvider";
 import { withAuth } from "../../components/auth/withAuth";
 import { useToast } from "../../components/toast/ToastProvider";
+import { ConnectWalletButton } from "../../components/wallet/ConnectWalletButton";
+import { useWallet } from "../../components/wallet/WalletProvider";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
@@ -63,8 +65,9 @@ function hashUserId(userId: string) {
 }
 
 function DashboardPage() {
-  const { user, refreshAuth } = useAuth();
+  const { user } = useAuth();
   const { pushToast } = useToast();
+  const { walletAddress: freighterAddress, isConnected: walletConnected } = useWallet();
 
   const [campaigns, setCampaigns] = useState<DashboardCampaign[]>([]);
   const [earnings, setEarnings] = useState<MyEarningsCampaign[]>([]);
@@ -74,8 +77,6 @@ function DashboardPage() {
   const [loadingEarnings, setLoadingEarnings] = useState(true);
   const [loadingPayoutHistory, setLoadingPayoutHistory] = useState(true);
 
-  const [walletInput, setWalletInput] = useState("");
-  const [walletSaving, setWalletSaving] = useState(false);
   const [claimingPayoutId, setClaimingPayoutId] = useState<string | null>(null);
 
   const [campaignError, setCampaignError] = useState<string | null>(null);
@@ -83,6 +84,9 @@ function DashboardPage() {
   const [payoutError, setPayoutError] = useState<string | null>(null);
 
   const seenCompletedPayoutsRef = useRef<Set<string>>(new Set());
+
+  // The effective wallet address: prefer Freighter (live), fall back to DB value
+  const effectiveWalletAddress = freighterAddress ?? payoutHistory?.walletAddress ?? null;
 
   useEffect(() => {
     const fetchCampaigns = async () => {
@@ -173,7 +177,6 @@ function DashboardPage() {
         }
 
         setPayoutHistory(payload.data);
-        setWalletInput(payload.data.walletAddress ?? "");
       } catch {
         setPayoutError("Failed to load payout history");
       } finally {
@@ -195,63 +198,6 @@ function DashboardPage() {
       }
     }
   }, [payoutHistory]);
-
-  const saveWalletAddress = async () => {
-    if (!user?.id || !walletInput.trim()) {
-      return;
-    }
-
-    const normalizedWallet = walletInput.trim();
-    if (!/^G[A-Z2-7]{55}$/.test(normalizedWallet)) {
-      setPayoutError("walletAddress must be a valid Stellar ed25519 public key");
-      return;
-    }
-
-    setWalletSaving(true);
-    setPayoutError(null);
-
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/users/${user.id}/wallet`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          walletAddress: normalizedWallet
-        })
-      });
-
-      const payload = (await response.json()) as ApiResponse<{ id: string; walletAddress: string }>;
-
-      if (!response.ok || !payload.success || !payload.data) {
-        setPayoutError(payload.error ?? "Failed to save wallet");
-        return;
-      }
-
-      const walletData = payload.data;
-
-      setPayoutHistory((previous) =>
-        previous
-          ? {
-              ...previous,
-              walletAddress: walletData.walletAddress
-            }
-          : previous
-      );
-      await refreshAuth();
-
-      pushToast({
-        type: "success",
-        title: "Wallet connected",
-        message: "Your Stellar wallet is ready for incoming payouts."
-      });
-    } catch {
-      setPayoutError("Failed to save wallet");
-    } finally {
-      setWalletSaving(false);
-    }
-  };
 
   const claimPendingPayout = async (campaignId: string, payoutId: string) => {
     if (!user?.id) {
@@ -489,35 +435,21 @@ function DashboardPage() {
                   <span className="text-xs text-muted">Links open on Stellar testnet explorer</span>
                 </div>
 
-                {!payoutHistory?.walletAddress ? (
+                {!effectiveWalletAddress ? (
                   <div className="space-y-2 rounded-md border border-border bg-background p-3">
-                    <p className="text-sm text-muted">Connect Wallet to receive XLM payouts.</p>
-                    <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                      <input
-                        type="text"
-                        value={walletInput}
-                        onChange={(event) => setWalletInput(event.target.value)}
-                        placeholder="G... Stellar public key"
-                        className="min-w-0 rounded-md border border-border bg-surface px-3 py-2 text-sm text-secondary outline-none focus:border-primary"
-                      />
-                      <button
-                        type="button"
-                        onClick={saveWalletAddress}
-                        disabled={walletSaving || walletInput.trim().length === 0}
-                        className="rounded-md border border-border px-3 py-2 text-sm font-semibold text-secondary disabled:opacity-60"
-                        style={{
-                          background:
-                            "linear-gradient(120deg, color-mix(in srgb, var(--color-primary) 16%, white), var(--color-surface))"
-                        }}
-                      >
-                        {walletSaving ? "Saving..." : "Connect Wallet"}
-                      </button>
-                    </div>
+                    <p className="text-sm text-muted">Connect your Freighter wallet to receive XLM payouts.</p>
+                    <ConnectWalletButton />
                   </div>
                 ) : (
-                  <p className="text-sm text-muted">
-                    Wallet connected: <span className="font-semibold text-secondary">{payoutHistory.walletAddress}</span>
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-background p-3">
+                    <p className="text-sm text-muted">
+                      Wallet:{" "}
+                      <span className="font-semibold text-secondary">
+                        {effectiveWalletAddress.slice(0, 6)}...{effectiveWalletAddress.slice(-6)}
+                      </span>
+                    </p>
+                    <ConnectWalletButton />
+                  </div>
                 )}
 
                 {loadingPayoutHistory ? (
@@ -599,8 +531,8 @@ function DashboardPage() {
                                   onClick={() => claimPendingPayout(payout.campaignId, payout.id)}
                                   disabled={
                                     claimingPayoutId === payout.id ||
-                                    !payoutHistory.walletAddress ||
-                                    payoutHistory.walletAddress.length === 0
+                                    !effectiveWalletAddress ||
+                                    effectiveWalletAddress.length === 0
                                   }
                                   className="rounded-md border border-border px-2 py-1 text-xs font-semibold text-secondary disabled:opacity-60"
                                   style={{

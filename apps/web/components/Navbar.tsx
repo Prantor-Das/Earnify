@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { useAuth } from "./auth/useAuth";
+import { ConnectWalletButton } from "./wallet/ConnectWalletButton";
 
 type NavbarProps = {
   onToggleTheme: () => void;
@@ -11,7 +12,6 @@ type NavbarProps = {
 
 function Navbar({ onToggleTheme, isDarkMode }: NavbarProps) {
   const { user, isAuthenticated, logout } = useAuth();
-  const walletLabel = user?.walletAddress ? `${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-6)}` : null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-surface/85 backdrop-blur">
@@ -39,16 +39,27 @@ function Navbar({ onToggleTheme, isDarkMode }: NavbarProps) {
             {isDarkMode ? "Light mode" : "Dark mode"}
           </button>
 
+          {isAuthenticated && user?.role === "FOUNDER" ? (
+            <Link
+              href={{ pathname: "/campaign/create" }}
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-secondary transition-transform hover:-translate-y-0.5"
+              style={{
+                background:
+                  "linear-gradient(120deg, color-mix(in srgb, var(--color-primary) 18%, white), var(--color-surface))"
+              }}
+            >
+              + Create Campaign
+            </Link>
+          ) : null}
+
+          {/* Freighter wallet connection — visible to all authenticated users */}
+          {isAuthenticated ? <ConnectWalletButton /> : null}
+
           {isAuthenticated ? (
             <>
               <span className="rounded-md border border-border bg-background px-3 py-1.5 text-xs text-muted">
                 {user?.name ?? "User"}
               </span>
-              {walletLabel ? (
-                <span className="rounded-md border border-success/40 bg-success/10 px-3 py-1.5 text-xs font-semibold text-success">
-                  Wallet connected: {walletLabel}
-                </span>
-              ) : null}
               <button
                 type="button"
                 onClick={() => {

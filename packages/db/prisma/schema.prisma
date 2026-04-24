@@ -13,8 +13,10 @@ enum UserRole {
 }
 
 enum CampaignStatus {
+  DRAFT
   ACTIVE
   PAUSED
+  COMPLETED
   ENDED
 }
 
@@ -48,29 +50,41 @@ model User {
   posts         Post[]
   scores        Score[]
   payouts       Payout[]
+  participations CampaignParticipant[]
 }
 
 model Campaign {
   id                      String         @id @default(cuid())
   title                   String
   description             String
-  productUrl              String
+  productUrl              String?
+  budget                  String         @default("0")
+  budgetToken             String         @default("XLM")
+  platforms               String[]
+  requiredKeywords        String[]
+  startDate               DateTime?
+  endDate                 DateTime?
   totalBudget             Decimal        @db.Decimal(12, 2)
   remainingBudget         Decimal        @db.Decimal(12, 2)
-  status                  CampaignStatus @default(ACTIVE)
+  status                  CampaignStatus @default(DRAFT)
   founderId               String
   founder                 User           @relation(fields: [founderId], references: [id], onDelete: Cascade)
+  contractId              String?
   stellarContractId       String?
   fundingTxHash           String?
-  stellarWalletPublicKey  String
+  founderWalletAddress    String?
+  stellarWalletPublicKey  String         @default("")
   stellarWalletSecretKeyEncrypted String?
   createdAt               DateTime       @default(now())
-  endsAt                  DateTime
+  updatedAt               DateTime       @updatedAt
+  endsAt                  DateTime?
   posts                   Post[]
   scores                  Score[]
   payouts                 Payout[]
+  participants            CampaignParticipant[]
 
   @@index([founderId])
+  @@index([status])
 }
 
 model Post {
@@ -80,10 +94,12 @@ model Post {
   userId            String
   user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   postUrl           String
+  postExternalId    String?
   platform          SocialPlatform
   status            PostStatus     @default(PENDING)
   authenticityScore Float?
   rejectionReason   String?
+  lastFetchedAt     DateTime?
   createdAt         DateTime       @default(now())
   engagements       PostEngagement[]
   scores            Score[]
@@ -135,4 +151,21 @@ model Payout {
 
   @@index([userId])
   @@index([campaignId])
+}
+
+model CampaignParticipant {
+  id                String   @id @default(cuid())
+  campaignId        String
+  campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalScore        Float    @default(0)
+  estimatedEarnings Float    @default(0)
+  rank              Int      @default(0)
+  joinedAt          DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([campaignId, userId])
+  @@index([campaignId])
+  @@index([userId])
 }

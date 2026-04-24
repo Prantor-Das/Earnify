@@ -1,15 +1,15 @@
 import cron from "node-cron";
 
-import { CampaignStatus, PostStatus, prisma } from "@earnify/db";
+import { CampaignStatus, prisma } from "@earnify/db";
 
-import { fetchEngagement } from "../services/engagementFetcher";
-import { calculateScore } from "../services/scoringEngine";
+import { getLeaderboard, refreshLeaderboard } from "../services/leaderboard.ts";
+import { emitLeaderboardUpdate } from "../websocket.ts";
 
 type EngagementRefreshSummary = {
   skipped: boolean;
-  processedPosts: number;
-  failedPosts: number;
-  totalPosts: number;
+  processedCampaigns: number;
+  failedCampaigns: number;
+  totalCampaigns: number;
   startedAt: string;
   finishedAt: string;
 };
@@ -20,12 +20,11 @@ let engagementCronTaskStarted = false;
 async function runEngagementRefreshCycle(): Promise<EngagementRefreshSummary> {
   if (refreshInProgress) {
     const now = new Date().toISOString();
-
     return {
       skipped: true,
-      processedPosts: 0,
-      failedPosts: 0,
-      totalPosts: 0,
+      processedCampaigns: 0,
+      failedCampaigns: 0,
+      totalCampaigns: 0,
       startedAt: now,
       finishedAt: now
     };
@@ -35,35 +34,27 @@ async function runEngagementRefreshCycle(): Promise<EngagementRefreshSummary> {
   const startedAt = new Date();
 
   try {
-    const posts = await prisma.post.findMany({
-      where: {
-        status: PostStatus.VERIFIED,
-        campaign: {
-          status: CampaignStatus.ACTIVE
-        }
-      },
-      select: {
-        id: true,
-        postUrl: true,
-        platform: true
-      },
-      orderBy: {
-        createdAt: "asc"
-      }
+    const activeCampaigns = await prisma.campaign.findMany({
+      where: { status: CampaignStatus.ACTIVE },
+      select: { id: true }
     });
 
-    let processedPosts = 0;
-    let failedPosts = 0;
+    let processedCampaigns = 0;
+    let failedCampaigns = 0;
 
-    for (const post of posts) {
+    for (const campaign of activeCampaigns) {
       try {
-        await fetchEngagement(post.postUrl, post.platform, { postId: post.id });
-        await calculateScore(post.id);
-        processedPosts += 1;
+        await refreshLeaderboard(campaign.id);
+
+        // Emit updated leaderboard over WebSocket
+        const leaderboard = await getLeaderboard(campaign.id, 50);
+        emitLeaderboardUpdate(campaign.id, leaderboard);
+
+        processedCampaigns += 1;
       } catch (error) {
-        failedPosts += 1;
-        console.error("Engagement refresh failed", {
-          postId: post.id,
+        failedCampaigns += 1;
+        console.error("Engagement refresh failed for campaign", {
+          campaignId: campaign.id,
           error
         });
       }
@@ -71,9 +62,9 @@ async function runEngagementRefreshCycle(): Promise<EngagementRefreshSummary> {
 
     return {
       skipped: false,
-      processedPosts,
-      failedPosts,
-      totalPosts: posts.length,
+      processedCampaigns,
+      failedCampaigns,
+      totalCampaigns: activeCampaigns.length,
       startedAt: startedAt.toISOString(),
       finishedAt: new Date().toISOString()
     };
@@ -89,7 +80,8 @@ function startEngagementCron() {
 
   engagementCronTaskStarted = true;
 
-  cron.schedule("*/15 * * * *", () => {
+  // Run every 30 minutes
+  cron.schedule("*/30 * * * *", () => {
     void runEngagementRefreshCycle().catch((error: unknown) => {
       console.error("Scheduled engagement refresh failed", error);
     });

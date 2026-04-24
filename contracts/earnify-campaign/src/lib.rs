@@ -104,7 +104,7 @@ fn payout_for(scores: &Map<Address, i128>, creator: &Address, remaining_budget: 
 
 #[contractimpl]
 impl EarnifyCampaignContract {
-    pub fn initialize(env: Env, founder: Address, total_budget: i128) {
+    pub fn initialize(env: Env, founder: Address, admin: Address, total_budget: i128) {
         if env.storage().instance().has(&DataKey::Founder) {
             panic!("already_initialized");
         }
@@ -116,9 +116,7 @@ impl EarnifyCampaignContract {
         founder.require_auth();
 
         env.storage().instance().set(&DataKey::Founder, &founder);
-        env.storage()
-            .instance()
-            .set(&DataKey::Admin, &env.invoker());
+        env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage()
             .instance()
             .set(&DataKey::TotalBudget, &total_budget);
@@ -128,8 +126,10 @@ impl EarnifyCampaignContract {
         env.storage()
             .instance()
             .set(&DataKey::CampaignStatus, &active_symbol(&env));
-        env.storage().instance().set(&DataKey::Scores, &map![&env]);
-        env.storage().instance().set(&DataKey::Claimed, &map![&env]);
+        let empty_scores: Map<Address, i128> = Map::new(&env);
+        let empty_claimed: Map<Address, bool> = Map::new(&env);
+        env.storage().instance().set(&DataKey::Scores, &empty_scores);
+        env.storage().instance().set(&DataKey::Claimed, &empty_claimed);
         env.storage().instance().set(&DataKey::Settled, &false);
 
         env.events().publish(
@@ -378,7 +378,7 @@ mod tests {
 
         let client = EarnifyCampaignContractClient::new(&env, &contract_id);
 
-        client.initialize(&founder, &1_000_i128);
+        client.initialize(&founder, &founder, &1_000_i128);
 
         let (total, remaining, status) = client.get_campaign_info();
         assert_eq!(total, 1_000);
@@ -396,9 +396,8 @@ mod tests {
         let creator = Address::generate(&env);
         let contract_id = env.register(EarnifyCampaignContract, ());
 
-        env.set_invoker(admin.clone());
         let client = EarnifyCampaignContractClient::new(&env, &contract_id);
-        client.initialize(&founder, &1_000_i128);
+        client.initialize(&founder, &admin, &1_000_i128);
 
         client.update_score(&admin, &creator, &250_i128);
 
@@ -418,8 +417,7 @@ mod tests {
         let contract_id = env.register(EarnifyCampaignContract, ());
         let client = EarnifyCampaignContractClient::new(&env, &contract_id);
 
-        env.set_invoker(admin.clone());
-        client.initialize(&founder, &1000_i128);
+        client.initialize(&founder, &admin, &1000_i128);
 
         client.update_score(&admin, &creator1, &10_i128);
         client.update_score(&admin, &creator2, &30_i128);
@@ -444,8 +442,7 @@ mod tests {
         let contract_id = env.register(EarnifyCampaignContract, ());
         let client = EarnifyCampaignContractClient::new(&env, &contract_id);
 
-        env.set_invoker(admin);
-        client.initialize(&founder, &750_i128);
+        client.initialize(&founder, &admin, &750_i128);
 
         client.end_campaign(&founder);
         let (_, remaining_before, status) = client.get_campaign_info();

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
 # db-deploy.sh
-# Runs in both local (Docker Postgres) and production (Neon) environments.
+# Runs migrations against Neon Postgres using DATABASE_URL.
 #
 # Usage:
 #   ./scripts/db-deploy.sh              # uses DATABASE_URL from .env
@@ -14,10 +14,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Load .env if present and DATABASE_URL not already set
 if [[ -z "${DATABASE_URL:-}" && -f "$ROOT_DIR/.env" ]]; then
-  set -o allexport
-  # shellcheck disable=SC1091
-  source "$ROOT_DIR/.env"
-  set +o allexport
+  database_url_line="$(grep -E '^DATABASE_URL=' "$ROOT_DIR/.env" | tail -n 1 || true)"
+  if [[ -n "$database_url_line" ]]; then
+    DATABASE_URL="${database_url_line#DATABASE_URL=}"
+    export DATABASE_URL
+  fi
 fi
 
 if [[ -z "${DATABASE_URL:-}" ]]; then
@@ -26,7 +27,7 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
 fi
 
 echo "→ Deploying migrations..."
-pnpm --filter @earnify/db exec prisma migrate deploy --config prisma.config.ts
+PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 pnpm --filter @earnify/db exec prisma migrate deploy --config prisma.config.ts
 
 echo "→ Generating Prisma Client..."
 pnpm --filter @earnify/db db:generate

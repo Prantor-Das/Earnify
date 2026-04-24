@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { runVerificationPipeline } from "./verificationEngine";
+import { runVerificationPipeline } from "./verificationEngine.ts";
 
 const mocks = vi.hoisted(() => ({
   mockFindUnique: vi.fn(),

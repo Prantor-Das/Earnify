@@ -2,8 +2,8 @@ import axios from "axios";
 import { CampaignStatus, PostStatus, SocialPlatform, prisma } from "@earnify/db";
 import { load } from "cheerio";
 
-import { runAiDetection } from "./aiDetection";
-import { calculateScore } from "./scoringEngine";
+import { runAiDetection } from "./aiDetection.ts";
+import { calculateScore } from "./scoringEngine.ts";
 
 type ExtractedContent = {
   ogTitle: string;
@@ -187,7 +187,7 @@ async function runVerificationPipeline(postId: string): Promise<void> {
   }
 
   // Step 3: Content relevance check with soft penalty when no keyword matches.
-  const keywords = getCampaignKeywords(post.campaign.title, post.campaign.productUrl);
+  const keywords = getCampaignKeywords(post.campaign.title, post.campaign.productUrl ?? "");
   const keywordMatches = countKeywordMatches(extractedContent.combinedText, keywords);
   const relevancePenalty = keywordMatches === 0 ? 0.15 : 0;
 

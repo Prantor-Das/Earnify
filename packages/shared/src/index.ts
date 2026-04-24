@@ -47,5 +47,8 @@ export interface LeaderboardEntry {
   userAvatar?: string | null;
   score: number;
   postCount: number;
+  estimatedEarnings: number;
+  platforms: SocialPlatform[];
+  lastUpdatedAt: string | null;
   change: "up" | "down" | "same";
 }

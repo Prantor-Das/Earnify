@@ -1,8 +1,16 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { CampaignStatus, PostStatus, PrismaClient, SocialPlatform, UserRole } from "@prisma/client";
+import prismaClient from "@prisma/client";
 import { Pool } from "pg";
 
-const databaseUrl = process.env.DATABASE_URL ?? "postgresql://earnify:earnify@localhost:5433/earnify?schema=public";
+const { CampaignStatus, PostStatus, PrismaClient, SocialPlatform, UserRole } =
+  prismaClient as typeof import("@prisma/client");
+
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is required. Set it to your Neon Postgres connection string.");
+}
+
 const pool = new Pool({
   connectionString: databaseUrl
 });
@@ -13,7 +21,7 @@ type SeededPostInput = {
   campaignId: string;
   userId: string;
   postUrl: string;
-  platform: SocialPlatform;
+  platform: keyof typeof SocialPlatform;
   authenticityScore: number;
   engagement: {
     views: number;
@@ -22,6 +30,22 @@ type SeededPostInput = {
     comments: number;
   };
 };
+
+function computePostScore(input: {
+  views: number;
+  likes: number;
+  shares: number;
+  comments: number;
+  authenticityScore: number;
+}) {
+  return (
+    input.views * 0.1 +
+    input.likes * 1.0 +
+    input.shares * 2.0 +
+    input.comments * 1.5 +
+    input.authenticityScore * 50
+  );
+}
 
 function addDays(baseDate: Date, daysToAdd: number) {
   const clonedDate = new Date(baseDate);
@@ -193,16 +217,42 @@ async function main() {
     }))
   });
 
-  const scoringEngineModuleUrl = new URL("../../../apps/api/src/services/scoringEngine.ts", import.meta.url).href;
-  const scoringEngineModule = (await import(scoringEngineModuleUrl)) as {
-    calculateScore: (postId: string) => Promise<number>;
-  };
+  await Promise.all(
+    seededPosts.map((post, index) =>
+      prisma.score.upsert({
+        where: {
+          postId_userId_campaignId: {
+            postId: post.id,
+            userId: postInputs[index]!.userId,
+            campaignId: postInputs[index]!.campaignId
+          }
+        },
+        update: {
+          totalScore: computePostScore({
+            views: postInputs[index]!.engagement.views,
+            likes: postInputs[index]!.engagement.likes,
+            shares: postInputs[index]!.engagement.shares,
+            comments: postInputs[index]!.engagement.comments,
+            authenticityScore: postInputs[index]!.authenticityScore
+          })
+        },
+        create: {
+          postId: post.id,
+          userId: postInputs[index]!.userId,
+          campaignId: postInputs[index]!.campaignId,
+          totalScore: computePostScore({
+            views: postInputs[index]!.engagement.views,
+            likes: postInputs[index]!.engagement.likes,
+            shares: postInputs[index]!.engagement.shares,
+            comments: postInputs[index]!.engagement.comments,
+            authenticityScore: postInputs[index]!.authenticityScore
+          })
+        }
+      })
+    )
+  );
 
-  for (const post of seededPosts) {
-    await scoringEngineModule.calculateScore(post.id);
-  }
-
-  console.log("Seeded 4 users, 2 active campaigns, 6 verified posts, engagements, scores, and Redis leaderboard");
+  console.log("Seeded 4 users, 2 active campaigns, 6 verified posts, engagements, and scores");
   console.log({
     founder: founder.email,
     creators: [bob.email, priya.email, jaewon.email],

@@ -1,8 +1,8 @@
 import { Router } from "express";
 
-import { requireAuth, requireRole } from "../../middleware/auth";
-import { runEngagementRefreshCycle } from "../jobs/engagementCron";
-import { sendError, sendSuccess } from "../utils/api-response";
+import { requireAuth, requireRole } from "../../middleware/auth.ts";
+import { runEngagementRefreshCycle } from "../jobs/engagementCron.ts";
+import { sendError, sendSuccess } from "../utils/api-response.ts";
 
 const adminRouter = Router();
 
@@ -14,7 +14,12 @@ adminRouter.post("/trigger-engagement-refresh", requireAuth, requireRole("FOUNDE
       response,
       {
         message: summary.skipped ? "Engagement refresh is already running" : "Engagement refresh completed",
-        ...summary
+        skipped: summary.skipped,
+        processedCampaigns: summary.processedCampaigns,
+        failedCampaigns: summary.failedCampaigns,
+        totalCampaigns: summary.totalCampaigns,
+        startedAt: summary.startedAt,
+        finishedAt: summary.finishedAt
       },
       summary.skipped ? 202 : 200
     );
