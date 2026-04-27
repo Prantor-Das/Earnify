@@ -3,6 +3,6 @@
   "compilerOptions": {
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "middleware/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "middleware/**/*.ts", "api/**/*.ts"],
   "exclude": ["node_modules"]
 }

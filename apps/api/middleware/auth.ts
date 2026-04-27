@@ -104,6 +104,21 @@ const requireAuth: RequestHandler = (request: Request, response: Response, next:
   next();
 };
 
+const optionalAuth: RequestHandler = (request: Request, _response: Response, next: NextFunction) => {
+  const token = extractToken(request);
+  if (!token) {
+    next();
+    return;
+  }
+
+  const user = decodeToken(token);
+  if (user) {
+    request.user = user;
+  }
+
+  next();
+};
+
 const requireRole = (role: UserRole): RequestHandler => {
   return (request: Request, response: Response, next: NextFunction) => {
     if (!request.user) {
@@ -120,4 +135,4 @@ const requireRole = (role: UserRole): RequestHandler => {
   };
 };
 
-export { requireAuth, requireRole };
+export { optionalAuth, requireAuth, requireRole };

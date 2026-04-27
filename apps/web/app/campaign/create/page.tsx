@@ -53,26 +53,21 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
         return (
           <div key={step} className="flex items-center gap-2">
             <div
-              className={[
-                "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors",
+              className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-all duration-300 ${
                 isActive
-                  ? "bg-primary text-white"
+                  ? "bg-[var(--color-primary)] text-white shadow-[0_0_15px_-3px_rgba(99,102,241,0.5)]"
                   : isDone
-                  ? "bg-success/20 text-success border border-success/40"
-                  : "border border-border bg-background text-muted"
-              ].join(" ")}
-              style={isActive ? { backgroundColor: "var(--color-primary)", color: "white" } : undefined}
+                  ? "bg-[var(--color-success)]/20 text-[var(--color-success)] border border-[var(--color-success)]/40"
+                  : "bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted)]"
+              }`}
             >
               {isDone ? "✓" : step}
             </div>
             {step < total && (
               <div
-                className="h-px w-6 transition-colors"
-                style={{
-                  backgroundColor: isDone
-                    ? "var(--color-success)"
-                    : "var(--color-border)"
-                }}
+                className={`h-0.5 w-8 transition-colors duration-300 ${
+                  isDone ? "bg-[var(--color-success)]" : "bg-[var(--color-border)]"
+                }`}
               />
             )}
           </div>
@@ -90,7 +85,7 @@ const STEP_LABELS = ["Basic Info", "Platforms & Keywords", "Budget & Dates", "Re
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <p className="mt-1 text-xs text-danger">{message}</p>;
+  return <p className="mt-1.5 text-xs font-medium text-[var(--color-danger)]">{message}</p>;
 }
 
 // ---------------------------------------------------------------------------
@@ -106,10 +101,10 @@ type Step1Props = {
 
 function Step1BasicInfo({ title, description, errors, onChange }: Step1Props) {
   return (
-    <div className="space-y-5">
-      <div className="space-y-1.5">
-        <label htmlFor="title" className="text-sm font-medium text-secondary">
-          Campaign Title <span className="text-danger">*</span>
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <label htmlFor="title" className="block text-sm font-semibold tracking-wide text-white">
+          Campaign Title <span className="text-[var(--color-danger)]">*</span>
         </label>
         <input
           id="title"
@@ -117,24 +112,22 @@ function Step1BasicInfo({ title, description, errors, onChange }: Step1Props) {
           value={title}
           onChange={(e) => onChange("title", e.target.value)}
           placeholder="e.g. Earnify Launch — Q3 2026"
-          className="w-full rounded-md border border-border px-3 py-2 text-sm text-secondary outline-none focus:border-primary"
-          style={{ backgroundColor: "var(--color-background)" }}
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[#0D0F14] px-4 py-3.5 text-white transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
         />
         <FieldError message={errors.title} />
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor="description" className="text-sm font-medium text-secondary">
-          Description <span className="text-danger">*</span>
+      <div className="space-y-2">
+        <label htmlFor="description" className="block text-sm font-semibold tracking-wide text-white">
+          Description <span className="text-[var(--color-danger)]">*</span>
         </label>
         <textarea
           id="description"
           value={description}
           onChange={(e) => onChange("description", e.target.value)}
           placeholder="Describe what creators should post about, the tone, and what makes a great submission."
-          rows={5}
-          className="w-full rounded-md border border-border px-3 py-2 text-sm text-secondary outline-none focus:border-primary resize-none"
-          style={{ backgroundColor: "var(--color-background)" }}
+          rows={6}
+          className="w-full resize-none rounded-xl border border-[var(--color-border)] bg-[#0D0F14] px-4 py-3.5 text-white transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
         />
         <FieldError message={errors.description} />
       </div>
@@ -162,12 +155,12 @@ function Step2PlatformsKeywords({
   onKeywordsChange
 }: Step2Props) {
   return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-secondary">
-          Target Platforms <span className="text-danger">*</span>
+    <div className="space-y-8">
+      <div className="space-y-3">
+        <p className="block text-sm font-semibold tracking-wide text-white">
+          Target Platforms <span className="text-[var(--color-danger)]">*</span>
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-3">
           {PLATFORMS.map(({ id, label }) => {
             const selected = platforms.includes(id);
             return (
@@ -175,13 +168,11 @@ function Step2PlatformsKeywords({
                 key={id}
                 type="button"
                 onClick={() => onTogglePlatform(id)}
-                className={[
-                  "rounded-md border px-4 py-2 text-sm font-medium transition-colors",
+                className={`rounded-xl border px-5 py-3 text-sm font-bold transition-all duration-200 ${
                   selected
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-background text-muted hover:border-primary/50"
-                ].join(" ")}
-                style={selected ? { borderColor: "var(--color-primary)", color: "var(--color-primary)", backgroundColor: "color-mix(in srgb, var(--color-primary) 10%, transparent)" } : undefined}
+                    ? "border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)] shadow-[0_0_15px_-5px_rgba(99,102,241,0.3)]"
+                    : "border-[var(--color-border)] bg-[#0D0F14] text-[var(--color-muted)] hover:border-[var(--color-primary)]/50 hover:text-white"
+                }`}
               >
                 {label}
               </button>
@@ -191,11 +182,11 @@ function Step2PlatformsKeywords({
         <FieldError message={errors.platforms} />
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor="keywords" className="text-sm font-medium text-secondary">
-          Required Keywords <span className="text-danger">*</span>
+      <div className="space-y-2">
+        <label htmlFor="keywords" className="block text-sm font-semibold tracking-wide text-white">
+          Required Keywords <span className="text-[var(--color-danger)]">*</span>
         </label>
-        <p className="text-xs text-muted">
+        <p className="text-xs text-[var(--color-muted)] pb-1">
           Comma-separated. Posts must include at least one of these keywords to qualify.
         </p>
         <input
@@ -204,12 +195,11 @@ function Step2PlatformsKeywords({
           value={keywordsInput}
           onChange={(e) => onKeywordsChange(e.target.value)}
           placeholder="e.g. #Earnify, @EarnifyApp, earnify.io"
-          className="w-full rounded-md border border-border px-3 py-2 text-sm text-secondary outline-none focus:border-primary"
-          style={{ backgroundColor: "var(--color-background)" }}
+          className="w-full rounded-xl border border-[var(--color-border)] bg-[#0D0F14] px-4 py-3.5 text-white transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
         />
         <FieldError message={errors.requiredKeywords} />
         {keywordsInput.trim().length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-1">
+          <div className="flex flex-wrap gap-2 pt-3">
             {keywordsInput
               .split(",")
               .map((k) => k.trim())
@@ -217,7 +207,7 @@ function Step2PlatformsKeywords({
               .map((kw) => (
                 <span
                   key={kw}
-                  className="rounded-full border border-border bg-background px-2.5 py-0.5 text-xs text-secondary"
+                  className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
                 >
                   {kw}
                 </span>
@@ -243,10 +233,10 @@ type Step3Props = {
 
 function Step3BudgetDates({ budget, startDate, endDate, errors, onChange }: Step3Props) {
   return (
-    <div className="space-y-5">
-      <div className="space-y-1.5">
-        <label htmlFor="budget" className="text-sm font-medium text-secondary">
-          Total Budget (XLM) <span className="text-danger">*</span>
+    <div className="space-y-8">
+      <div className="space-y-2">
+        <label htmlFor="budget" className="block text-sm font-semibold tracking-wide text-white">
+          Total Budget (XLM) <span className="text-[var(--color-danger)]">*</span>
         </label>
         <div className="relative">
           <input
@@ -257,54 +247,48 @@ function Step3BudgetDates({ budget, startDate, endDate, errors, onChange }: Step
             value={budget}
             onChange={(e) => onChange("budget", e.target.value)}
             placeholder="e.g. 500"
-            className="w-full rounded-md border border-border px-3 py-2 pr-14 text-sm text-secondary outline-none focus:border-primary"
-            style={{ backgroundColor: "var(--color-background)" }}
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[#0D0F14] px-4 py-3.5 pr-16 text-white transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] text-lg"
           />
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted">
+          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[var(--color-muted)]">
             XLM
           </span>
         </div>
         <FieldError message={errors.budget} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <label htmlFor="startDate" className="text-sm font-medium text-secondary">
-            Start Date <span className="text-muted text-xs font-normal">(optional)</span>
+      <div className="grid gap-6 sm:grid-cols-2">
+        <div className="space-y-2">
+          <label htmlFor="startDate" className="block text-sm font-semibold tracking-wide text-white">
+            Start Date <span className="text-[var(--color-muted)] text-xs font-normal ml-1">(optional)</span>
           </label>
           <input
             id="startDate"
             type="datetime-local"
             value={startDate}
             onChange={(e) => onChange("startDate", e.target.value)}
-            className="w-full rounded-md border border-border px-3 py-2 text-sm text-secondary outline-none focus:border-primary"
-            style={{ backgroundColor: "var(--color-background)" }}
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[#0D0F14] px-4 py-3.5 text-white transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
           />
           <FieldError message={errors.startDate} />
         </div>
 
-        <div className="space-y-1.5">
-          <label htmlFor="endDate" className="text-sm font-medium text-secondary">
-            End Date <span className="text-danger">*</span>
+        <div className="space-y-2">
+          <label htmlFor="endDate" className="block text-sm font-semibold tracking-wide text-white">
+            End Date <span className="text-[var(--color-danger)]">*</span>
           </label>
           <input
             id="endDate"
             type="datetime-local"
             value={endDate}
             onChange={(e) => onChange("endDate", e.target.value)}
-            className="w-full rounded-md border border-border px-3 py-2 text-sm text-secondary outline-none focus:border-primary"
-            style={{ backgroundColor: "var(--color-background)" }}
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[#0D0F14] px-4 py-3.5 text-white transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
           />
           <FieldError message={errors.endDate} />
         </div>
       </div>
 
-      <div
-        className="rounded-md border border-border p-3 text-xs text-muted"
-        style={{ backgroundColor: "color-mix(in srgb, var(--color-primary) 5%, var(--color-background))" }}
-      >
-        <strong className="text-secondary">Note:</strong> The campaign will be saved as a{" "}
-        <span className="font-semibold text-accent">DRAFT</span>. You can fund it via Freighter after creation.
+      <div className="rounded-xl border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 p-4 text-sm text-[var(--color-muted)]">
+        <strong className="text-white">Note:</strong> The campaign will be saved as a{" "}
+        <span className="font-bold text-[var(--color-primary)]">DRAFT</span>. You can fund it via Freighter after creation.
       </div>
     </div>
   );
@@ -349,49 +333,46 @@ function Step4Review({
   ];
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-md border border-border overflow-hidden">
+    <div className="space-y-8">
+      <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[#0D0F14]">
         <table className="w-full text-sm">
-          <tbody>
+          <tbody className="divide-y divide-[var(--color-border)]">
             {rows.map(({ label, value }) => (
-              <tr key={label} className="border-b border-border last:border-0">
-                <td className="px-4 py-2.5 font-medium text-secondary w-36 bg-surface">{label}</td>
-                <td className="px-4 py-2.5 text-muted">{value}</td>
+              <tr key={label}>
+                <td className="w-40 bg-[var(--color-surface)]/30 px-5 py-4 font-semibold text-white">{label}</td>
+                <td className="px-5 py-4 text-[var(--color-muted)]">{value}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="space-y-1.5">
-        <p className="text-sm font-medium text-secondary">Description</p>
-        <p className="rounded-md border border-border bg-background px-4 py-3 text-sm text-muted leading-6">
+      <div className="space-y-3">
+        <p className="font-semibold text-white px-1">Description</p>
+        <p className="rounded-xl border border-[var(--color-border)] bg-[#0D0F14] px-5 py-4 text-sm leading-relaxed text-[var(--color-muted)] whitespace-pre-wrap">
           {description}
         </p>
       </div>
 
       {submitError && (
-        <div className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+        <div className="rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 px-5 py-4 text-sm font-medium text-[var(--color-danger)] text-center">
           {submitError}
         </div>
       )}
 
-      <form onSubmit={onSubmit}>
+      <form onSubmit={onSubmit} className="pt-4 border-t border-[var(--color-border)]">
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex items-center gap-2 rounded-md border border-border px-6 py-2.5 text-sm font-semibold text-secondary disabled:cursor-not-allowed disabled:opacity-60 transition-transform hover:-translate-y-0.5"
-          style={{
-            background: "linear-gradient(120deg, color-mix(in srgb, var(--color-primary) 18%, white), var(--color-surface))"
-          }}
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)] px-8 py-4 text-base font-bold text-white shadow-[0_0_20px_-5px_rgba(99,102,241,0.5)] transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? (
             <>
-              <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
               Saving draft…
             </>
           ) : (
-            "Save Draft & Fund on Stellar →"
+            "Save Draft & Continue to Funding →"
           )}
         </button>
       </form>
@@ -415,60 +396,63 @@ function FundedSuccessPanel({
   onCreateAnother: () => void;
 }) {
   return (
-    <div className="space-y-5">
-      <div
-        className="rounded-md border border-success/40 p-5 space-y-2"
-        style={{ backgroundColor: "color-mix(in srgb, var(--color-success) 8%, var(--color-background))" }}
-      >
-        <p className="text-sm font-semibold text-success">🎉 Campaign is live!</p>
-        <p className="text-sm text-muted">
-          <strong className="text-secondary">{campaign.title}</strong> is now{" "}
-          <span className="font-semibold text-success">ACTIVE</span> on Stellar testnet.
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-[var(--color-success)]/30 bg-[var(--color-success)]/10 p-6 text-center space-y-3 relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-[var(--color-success)]/20 blur-3xl"></div>
+        <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-success)]/20 text-3xl mb-2">
+          🎉
+        </div>
+        <h3 className="text-xl font-bold text-white">Campaign is Live!</h3>
+        <p className="text-[var(--color-muted)]">
+          <strong className="text-white">{campaign.title}</strong> is now{" "}
+          <span className="font-bold text-[var(--color-success)]">ACTIVE</span> on Stellar testnet.
         </p>
       </div>
 
-      <div className="rounded-md border border-border bg-background p-4 space-y-2 text-xs text-muted">
-        <p>
-          <span className="font-semibold text-secondary">Contract: </span>
+      <div className="rounded-xl border border-[var(--color-border)] bg-[#0D0F14] p-5 space-y-4 text-sm">
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold text-[var(--color-muted)] uppercase tracking-wider text-xs">Contract Address</span>
           <a
-            href={`https://testnet.stellar.expert/explorer/testnet/contract/${contractId}`}
+            href={`https://stellar.expert/explorer/testnet/search?term=${encodeURIComponent(contractId)}`}
             target="_blank"
             rel="noreferrer"
-            className="break-all underline text-secondary"
+            className="break-all font-mono text-[var(--color-primary)] hover:underline"
           >
             {contractId}
           </a>
-        </p>
-        <p>
-          <span className="font-semibold text-secondary">Funding tx: </span>
+        </div>
+        
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold text-[var(--color-muted)] uppercase tracking-wider text-xs">Funding Transaction</span>
           <a
-            href={`https://testnet.stellar.expert/explorer/testnet/tx/${txHash}`}
+            href={`https://stellar.expert/explorer/testnet/search?term=${encodeURIComponent(txHash)}`}
             target="_blank"
             rel="noreferrer"
-            className="break-all underline text-secondary"
+            className="break-all font-mono text-[var(--color-primary)] hover:underline"
           >
             {txHash}
           </a>
-        </p>
-        <p>
-          <span className="font-semibold text-secondary">Budget: </span>
-          {campaign.budget} {campaign.budgetToken}
-        </p>
+        </div>
+        
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold text-[var(--color-muted)] uppercase tracking-wider text-xs">Total Budget</span>
+          <span className="font-bold text-white text-lg">
+            {campaign.budget} {campaign.budgetToken}
+          </span>
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-[var(--color-border)]/50">
         <a
           href={`/campaign/${campaign.id}`}
-          className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-secondary"
-          style={{ background: "var(--color-surface)" }}
+          className="flex-1 inline-flex items-center justify-center rounded-full bg-[var(--color-primary)] px-6 py-3.5 text-sm font-bold text-white hover:bg-opacity-90 transition-all"
         >
-          View Campaign →
+          View Live Campaign →
         </a>
         <button
           type="button"
           onClick={onCreateAnother}
-          className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-secondary"
-          style={{ background: "var(--color-background)" }}
+          className="flex-1 inline-flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-3.5 text-sm font-bold text-white hover:bg-[#2A2D3A] transition-all"
         >
           Create Another
         </button>
@@ -631,179 +615,178 @@ function CreateCampaignPage() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-8 sm:px-6 lg:px-10">
-      <section className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
+    <main className="min-h-screen bg-[var(--color-background)] text-[#e2e8f0] pb-20 pt-8">
+      <section className="mx-auto grid w-full max-w-7xl gap-8 px-4 sm:px-6 lg:px-8 lg:grid-cols-[1fr_350px]">
         {/* ---- Main card ---- */}
-        <article
-          className="rounded-xl border border-border p-6 sm:p-8"
-          style={{
-            background:
-              "linear-gradient(140deg, color-mix(in srgb, var(--color-primary) 9%, white), var(--color-surface))",
-            boxShadow: "0 24px 65px color-mix(in srgb, var(--color-primary) 12%, transparent)"
-          }}
-        >
-          <header className="space-y-3">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">Founder Console</p>
-            <h1 className="text-2xl font-semibold text-secondary sm:text-3xl">Create a Campaign</h1>
-            <p className="text-sm leading-6 text-muted">
-              Fill in the details below. Your campaign will be saved as a draft — you can fund it via Freighter
-              afterwards.
-            </p>
-          </header>
-
-          {/* Step indicator */}
-          {!createdCampaign && (
-            <div className="mt-6 space-y-1">
-              <StepIndicator current={step} total={TOTAL_STEPS} />
-              <p className="text-xs text-muted">
-                Step {step} of {TOTAL_STEPS} — {STEP_LABELS[step - 1]}
+        <article className="relative overflow-hidden rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 backdrop-blur-xl shadow-2xl">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)]"></div>
+          
+          <div className="p-8 sm:p-12">
+            <header className="space-y-3 mb-10">
+              <p className="text-sm font-semibold uppercase tracking-widest text-[var(--color-primary)]">Founder Console</p>
+              <h1 className="text-3xl font-bold text-white sm:text-4xl">Launch a Campaign</h1>
+              <p className="text-base text-[var(--color-muted)] max-w-2xl">
+                Design your marketing bounty. Campaign launch now requires funding via Freighter in the final step.
               </p>
-            </div>
-          )}
+            </header>
 
-          <div className="mt-6">
-            {createdCampaign && fundingResult ? (
-              <FundedSuccessPanel
-                campaign={createdCampaign}
-                contractId={fundingResult.contractId}
-                txHash={fundingResult.txHash}
-                onCreateAnother={handleCreateAnother}
-              />
-            ) : createdCampaign && step === 5 ? (
-              <FundCampaignStep
-                campaign={createdCampaign}
-                onSuccess={(result) => {
-                  setFundingResult(result);
-                }}
-                onSkip={() => {
-                  // Let them view the draft campaign without funding
-                  window.location.href = `/campaign/${createdCampaign.id}`;
-                }}
-              />
-            ) : (
-              <>
-                {step === 1 && (
-                  <Step1BasicInfo
-                    title={title}
-                    description={description}
-                    errors={errors}
-                    onChange={(field, value) => {
-                      if (field === "title") setTitle(value);
-                      else setDescription(value);
-                    }}
-                  />
-                )}
-                {step === 2 && (
-                  <Step2PlatformsKeywords
-                    platforms={platforms}
-                    keywordsInput={keywordsInput}
-                    errors={errors}
-                    onTogglePlatform={handleTogglePlatform}
-                    onKeywordsChange={setKeywordsInput}
-                  />
-                )}
-                {step === 3 && (
-                  <Step3BudgetDates
-                    budget={budget}
-                    startDate={startDate}
-                    endDate={endDate}
-                    errors={errors}
-                    onChange={(field, value) => {
-                      if (field === "budget") setBudget(value);
-                      else if (field === "startDate") setStartDate(value);
-                      else setEndDate(value);
-                    }}
-                  />
-                )}
-                {step === 4 && (
-                  <Step4Review
-                    title={title}
-                    description={description}
-                    platforms={platforms}
-                    keywords={keywords}
-                    budget={budget}
-                    startDate={startDate}
-                    endDate={endDate}
-                    submitting={submitting}
-                    submitError={submitError}
-                    onSubmit={handleSubmit}
-                  />
-                )}
+            {/* Step indicator */}
+            {!createdCampaign && (
+              <div className="mb-12 border-b border-[var(--color-border)]/50 pb-8">
+                <StepIndicator current={step} total={TOTAL_STEPS} />
+                <p className="mt-4 text-sm font-medium text-[var(--color-muted)] uppercase tracking-wider">
+                  Step {step} of {TOTAL_STEPS} — <span className="text-white">{STEP_LABELS[step - 1]}</span>
+                </p>
+              </div>
+            )}
 
-                {/* Navigation buttons */}
-                {step < 4 && (
-                  <div className="mt-6 flex items-center gap-3">
-                    {step > 1 && (
+            <div className="mt-2">
+              {createdCampaign && fundingResult ? (
+                <FundedSuccessPanel
+                  campaign={createdCampaign}
+                  contractId={fundingResult.contractId}
+                  txHash={fundingResult.txHash}
+                  onCreateAnother={handleCreateAnother}
+                />
+              ) : createdCampaign && step === 5 ? (
+                <FundCampaignStep
+                  campaign={createdCampaign}
+                  onSuccess={(result) => {
+                    setFundingResult(result);
+                  }}
+                  allowSkip={false}
+                  onSkip={() => {
+                    // Let them view the draft campaign without funding
+                    window.location.href = `/campaign/${createdCampaign.id}`;
+                  }}
+                />
+              ) : (
+                <>
+                  <div className="min-h-[300px]">
+                    {step === 1 && (
+                      <Step1BasicInfo
+                        title={title}
+                        description={description}
+                        errors={errors}
+                        onChange={(field, value) => {
+                          if (field === "title") setTitle(value);
+                          else setDescription(value);
+                        }}
+                      />
+                    )}
+                    {step === 2 && (
+                      <Step2PlatformsKeywords
+                        platforms={platforms}
+                        keywordsInput={keywordsInput}
+                        errors={errors}
+                        onTogglePlatform={handleTogglePlatform}
+                        onKeywordsChange={setKeywordsInput}
+                      />
+                    )}
+                    {step === 3 && (
+                      <Step3BudgetDates
+                        budget={budget}
+                        startDate={startDate}
+                        endDate={endDate}
+                        errors={errors}
+                        onChange={(field, value) => {
+                          if (field === "budget") setBudget(value);
+                          else if (field === "startDate") setStartDate(value);
+                          else setEndDate(value);
+                        }}
+                      />
+                    )}
+                    {step === 4 && (
+                      <Step4Review
+                        title={title}
+                        description={description}
+                        platforms={platforms}
+                        keywords={keywords}
+                        budget={budget}
+                        startDate={startDate}
+                        endDate={endDate}
+                        submitting={submitting}
+                        submitError={submitError}
+                        onSubmit={handleSubmit}
+                      />
+                    )}
+                  </div>
+
+                  {/* Navigation buttons */}
+                  {step < 4 && (
+                    <div className="mt-10 flex items-center justify-between border-t border-[var(--color-border)]/50 pt-8">
+                      {step > 1 ? (
+                        <button
+                          type="button"
+                          onClick={handleBack}
+                          className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#2A2D3A]"
+                        >
+                          ← Back
+                        </button>
+                      ) : (
+                        <div></div> // Empty div for spacing
+                      )}
+                      
+                      <button
+                        type="button"
+                        onClick={handleNext}
+                        className="rounded-full bg-[var(--color-primary)] px-8 py-3 text-sm font-bold text-white shadow-lg shadow-[var(--color-primary)]/20 transition-transform hover:-translate-y-0.5 hover:shadow-[var(--color-primary)]/40"
+                      >
+                        Next Step →
+                      </button>
+                    </div>
+                  )}
+                  {step === 4 && (
+                    <div className="mt-8">
                       <button
                         type="button"
                         onClick={handleBack}
-                        className="rounded-md border border-border bg-background px-4 py-2 text-sm font-semibold text-secondary"
+                        disabled={submitting}
+                        className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#2A2D3A] disabled:opacity-50"
                       >
-                        Back
+                        ← Edit Details
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="rounded-md border border-border px-5 py-2 text-sm font-semibold text-secondary transition-transform hover:-translate-y-0.5"
-                      style={{
-                        background:
-                          "linear-gradient(120deg, color-mix(in srgb, var(--color-primary) 18%, white), var(--color-surface))"
-                      }}
-                    >
-                      Next →
-                    </button>
-                  </div>
-                )}
-                {step === 4 && (
-                  <div className="mt-4">
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="rounded-md border border-border bg-background px-4 py-2 text-sm font-semibold text-secondary"
-                    >
-                      ← Back
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </article>
 
         {/* ---- Sidebar ---- */}
-        <aside className="space-y-4">
-          <div className="rounded-xl border border-border bg-surface p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-secondary">Launch Checklist</h2>
-            <ul className="mt-3 space-y-3 text-sm text-muted">
-              <li className="rounded-md border border-border bg-background p-3">
-                <strong className="text-secondary">Step 1 — Basic Info</strong>
-                <br />
-                Pick a short, creator-friendly title and describe the campaign clearly.
+        <aside className="space-y-6">
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/30 p-6 backdrop-blur">
+            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-[var(--color-primary)] mb-6">
+              <span className="h-2 w-2 rounded-full bg-[var(--color-primary)]"></span> Launch Checklist
+            </h2>
+            
+            <ul className="space-y-4">
+              <li className="relative pl-6 before:absolute before:left-0 before:top-2 before:h-1.5 before:w-1.5 before:rounded-full before:bg-[var(--color-secondary)]">
+                <p className="text-sm font-bold text-white mb-1">Step 1 — Basic Info</p>
+                <p className="text-xs text-[var(--color-muted)] leading-relaxed">Pick a short, creator-friendly title and describe the campaign clearly.</p>
               </li>
-              <li className="rounded-md border border-border bg-background p-3">
-                <strong className="text-secondary">Step 2 — Platforms & Keywords</strong>
-                <br />
-                Choose where creators should post and what hashtags or mentions to include.
+              <li className="relative pl-6 before:absolute before:left-0 before:top-2 before:h-1.5 before:w-1.5 before:rounded-full before:bg-[var(--color-secondary)]">
+                <p className="text-sm font-bold text-white mb-1">Step 2 — Targeting</p>
+                <p className="text-xs text-[var(--color-muted)] leading-relaxed">Choose where creators should post and what hashtags or mentions to include.</p>
               </li>
-              <li className="rounded-md border border-border bg-background p-3">
-                <strong className="text-secondary">Step 3 — Budget & Dates</strong>
-                <br />
-                Set a realistic XLM budget and a clear end date so rankings translate into meaningful payouts.
+              <li className="relative pl-6 before:absolute before:left-0 before:top-2 before:h-1.5 before:w-1.5 before:rounded-full before:bg-[var(--color-secondary)]">
+                <p className="text-sm font-bold text-white mb-1">Step 3 — Parameters</p>
+                <p className="text-xs text-[var(--color-muted)] leading-relaxed">Set a realistic XLM budget and a clear end date for meaningful payouts.</p>
               </li>
-              <li className="rounded-md border border-border bg-background p-3">
-                <strong className="text-secondary">Step 4 — Review & Deploy</strong>
-                <br />
-                Confirm everything looks right, then save the draft. Fund via Freighter to go live.
+              <li className="relative pl-6 before:absolute before:left-0 before:top-2 before:h-1.5 before:w-1.5 before:rounded-full before:bg-[var(--color-secondary)]">
+                <p className="text-sm font-bold text-white mb-1">Step 4 — Finalize</p>
+                <p className="text-xs text-[var(--color-muted)] leading-relaxed">Confirm everything looks right, save the draft, and prepare your wallet.</p>
               </li>
             </ul>
           </div>
 
-          <div className="rounded-xl border border-border bg-surface p-5 text-xs text-muted space-y-1.5">
-            <p className="font-semibold text-secondary text-sm">About Freighter funding</p>
-            <p className="leading-5">
-              After saving the draft, you&apos;ll be prompted to connect your Freighter wallet and sign a transaction
-              that deploys and funds the Soroban contract. Your secret key never leaves your browser.
+          <div className="rounded-2xl border border-[#10B981]/20 bg-gradient-to-b from-[var(--color-surface)] to-[#0D0F14] p-6 shadow-[0_0_30px_-10px_rgba(16,185,129,0.1)]">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-white mb-3">
+              <span className="text-[#10B981]">✦</span> About Freighter funding
+            </h3>
+            <p className="text-xs text-[var(--color-muted)] leading-relaxed">
+              After saving the draft, you'll be prompted to connect your Freighter wallet and sign a transaction that deploys and funds the Soroban contract. <strong className="text-white font-semibold">Your secret key never leaves your browser.</strong>
             </p>
           </div>
         </aside>

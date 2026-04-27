@@ -3,6 +3,7 @@ import { CampaignStatus, PostStatus, SocialPlatform, prisma } from "@earnify/db"
 import { load } from "cheerio";
 
 import { runAiDetection } from "./aiDetection.ts";
+import { fetchEngagement } from "./engagementFetcher.ts";
 import { calculateScore } from "./scoringEngine.ts";
 
 type ExtractedContent = {
@@ -217,6 +218,20 @@ async function runVerificationPipeline(postId: string): Promise<void> {
       rejectionReason: null
     }
   });
+
+  // Step 5: Attempt engagement fetch before score calculation so first score
+  // is not always zero while waiting for the cron refresh cycle.
+  try {
+    await fetchEngagement(normalizedUrl, post.platform, { postId: post.id });
+  } catch (error) {
+    // Engagement providers can fail due missing API credentials/rate limits.
+    // Keep post verified and let scoring fallback + cron refresh handle it.
+    console.warn("Engagement fetch failed during verification; continuing with current snapshot", {
+      postId: post.id,
+      platform: post.platform,
+      error
+    });
+  }
 
   try {
     await calculateScore(post.id);

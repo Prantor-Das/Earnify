@@ -6,7 +6,7 @@ import { emitPayoutUpdate } from "../websocket.ts";
 
 const HORIZON_URL = "https://horizon-testnet.stellar.org";
 const NETWORK_PASSPHRASE = StellarSdk.Networks.TESTNET;
-const STELLAR_EXPERT_BASE_URL = "https://testnet.stellar.expert/explorer/testnet/tx";
+const STELLAR_EXPERT_BASE_URL = "https://stellar.expert/explorer/testnet/search?term=";
 
 const horizon = new StellarSdk.Horizon.Server(HORIZON_URL);
 
@@ -24,6 +24,13 @@ type PayoutExecutionResult = {
   status: PayoutStatus;
   stellarTxHash: string | null;
   payoutId: string;
+};
+
+type CampaignRefundResult = {
+  destination: string;
+  amount: number;
+  status: "COMPLETED" | "FAILED" | "SKIPPED";
+  stellarTxHash: string | null;
 };
 
 type ExecutePayoutOptions = {
@@ -44,6 +51,45 @@ function formatStellarAmount(value: number) {
 
 function roundPayoutAmount(value: number) {
   return Math.max(0, Number(value.toFixed(7)));
+}
+
+function extractHorizonErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "Unknown payout transfer error";
+  }
+
+  const err = error as Error & {
+    response?: {
+      data?: {
+        detail?: string;
+        extras?: {
+          result_codes?: {
+            transaction?: string;
+            operations?: string[];
+          };
+        };
+      };
+    };
+  };
+
+  const detail = err.response?.data?.detail;
+  const txCode = err.response?.data?.extras?.result_codes?.transaction;
+  const opCodes = err.response?.data?.extras?.result_codes?.operations;
+  const opCodeText = Array.isArray(opCodes) && opCodes.length > 0 ? opCodes.join(",") : null;
+
+  if (detail && txCode && opCodeText) {
+    return `${detail} (tx=${txCode}, op=${opCodeText})`;
+  }
+
+  if (detail && txCode) {
+    return `${detail} (tx=${txCode})`;
+  }
+
+  if (detail) {
+    return detail;
+  }
+
+  return err.message || "Unknown payout transfer error";
 }
 
 async function submitXlmPayment(sourceSecretKey: string, destination: string, amount: number) {
@@ -70,14 +116,44 @@ async function submitXlmPayment(sourceSecretKey: string, destination: string, am
   return result.hash;
 }
 
+async function getWalletNativeBalance(publicKey: string): Promise<number> {
+  const account = await horizon.loadAccount(publicKey);
+  const native = account.balances.find((balance: { asset_type: string; balance: string }) => balance.asset_type === "native");
+  return Number(native?.balance ?? "0");
+}
+
 function allocatePayouts(entries: CampaignScoreEntry[], totalBudget: number) {
   const totalScore = entries.reduce((sum, entry) => sum + entry.score, 0);
 
-  if (totalScore <= 0 || totalBudget <= 0) {
+  if (totalBudget <= 0) {
     return entries.map((entry) => ({
       ...entry,
       amount: 0
     }));
+  }
+
+  if (totalScore <= 0) {
+    if (entries.length === 0) {
+      return [];
+    }
+
+    const evenShare = roundPayoutAmount(totalBudget / entries.length);
+    const allocations = entries.map((entry, index) => {
+      if (index === entries.length - 1) {
+        const allocated = evenShare * (entries.length - 1);
+        return {
+          ...entry,
+          amount: roundPayoutAmount(totalBudget - allocated)
+        };
+      }
+
+      return {
+        ...entry,
+        amount: evenShare
+      };
+    });
+
+    return allocations;
   }
 
   let allocated = 0;
@@ -114,11 +190,31 @@ async function getCampaignScoreEntries(campaignId: string): Promise<CampaignScor
     }
   });
 
-  if (groupedScores.length === 0) {
+  const [participantRows, verifiedPostRows] = await Promise.all([
+    prisma.campaignParticipant.findMany({
+      where: { campaignId },
+      select: { userId: true }
+    }),
+    prisma.post.findMany({
+      where: { campaignId, status: "VERIFIED" },
+      select: { userId: true },
+      distinct: ["userId"]
+    })
+  ]);
+
+  const scoreByUserId = new Map(groupedScores.map((entry) => [entry.userId, entry._sum.totalScore ?? 0]));
+  const userIds = Array.from(
+    new Set([
+      ...groupedScores.map((entry) => entry.userId),
+      ...participantRows.map((entry) => entry.userId),
+      ...verifiedPostRows.map((entry) => entry.userId)
+    ])
+  );
+
+  if (userIds.length === 0) {
     return [];
   }
 
-  const userIds = groupedScores.map((entry) => entry.userId);
   const users = await prisma.user.findMany({
     where: {
       id: {
@@ -134,9 +230,9 @@ async function getCampaignScoreEntries(campaignId: string): Promise<CampaignScor
 
   const userById = new Map(users.map((user) => [user.id, user]));
 
-  return groupedScores
-    .map((entry) => {
-      const user = userById.get(entry.userId);
+  return userIds
+    .map((userId) => {
+      const user = userById.get(userId);
 
       if (!user) {
         return null;
@@ -146,11 +242,11 @@ async function getCampaignScoreEntries(campaignId: string): Promise<CampaignScor
         userId: user.id,
         userName: user.name,
         walletAddress: user.walletAddress,
-        score: entry._sum.totalScore ?? 0
+        score: scoreByUserId.get(user.id) ?? 0
       };
     })
     .filter((entry): entry is CampaignScoreEntry => entry !== null)
-    .filter((entry) => entry.score > 0);
+    .filter((entry) => entry.score >= 0);
 }
 
 async function createPayoutRecord(input: {
@@ -178,9 +274,16 @@ async function executeCampaignPayouts(campaignId: string, options: ExecutePayout
     },
     select: {
       id: true,
+      founderId: true,
       status: true,
       remainingBudget: true,
-      stellarWalletSecretKeyEncrypted: true
+      stellarWalletSecretKeyEncrypted: true,
+      founderWalletAddress: true,
+      founder: {
+        select: {
+          walletAddress: true
+        }
+      }
     }
   });
 
@@ -197,11 +300,13 @@ async function executeCampaignPayouts(campaignId: string, options: ExecutePayout
   }
 
   const campaignBudget = toNumber(campaign.remainingBudget);
-  const scoreEntries = await getCampaignScoreEntries(campaign.id);
+  const sourceSecretKey = decryptSecretKey(campaign.stellarWalletSecretKeyEncrypted);
+
+  const scoreEntries = (await getCampaignScoreEntries(campaign.id)).filter((entry) => entry.userId !== campaign.founderId);
   const allocated = allocatePayouts(scoreEntries, campaignBudget).filter((entry) => entry.amount > 0);
 
-  const sourceSecretKey = decryptSecretKey(campaign.stellarWalletSecretKeyEncrypted);
   const results: PayoutExecutionResult[] = [];
+  let distributedBudget = 0;
 
   for (const entry of allocated) {
     if (!entry.walletAddress) {
@@ -247,6 +352,7 @@ async function executeCampaignPayouts(campaignId: string, options: ExecutePayout
       };
 
       results.push(result);
+      distributedBudget += entry.amount;
       emitPayoutUpdate(campaign.id, result);
     } catch {
       const failedPayout = await createPayoutRecord({
@@ -271,36 +377,64 @@ async function executeCampaignPayouts(campaignId: string, options: ExecutePayout
     }
   }
 
+  let refund: CampaignRefundResult | null = null;
+  const founderWallet = campaign.founder.walletAddress ?? campaign.founderWalletAddress ?? null;
+  const hasPayoutRecipients = allocated.length > 0;
+
+  if (!hasPayoutRecipients && founderWallet && campaignBudget > 0) {
+    try {
+      const txHash = await submitXlmPayment(sourceSecretKey, founderWallet, campaignBudget);
+      distributedBudget += campaignBudget;
+      refund = {
+        destination: founderWallet,
+        amount: campaignBudget,
+        status: "COMPLETED",
+        stellarTxHash: txHash
+      };
+    } catch {
+      refund = {
+        destination: founderWallet,
+        amount: campaignBudget,
+        status: "FAILED",
+        stellarTxHash: null
+      };
+    }
+  } else if (!hasPayoutRecipients && !founderWallet && campaignBudget > 0) {
+    refund = {
+      destination: "",
+      amount: campaignBudget,
+      status: "SKIPPED",
+      stellarTxHash: null
+    };
+  }
+
   await prisma.campaign.update({
     where: {
       id: campaign.id
     },
     data: {
-      remainingBudget: 0,
       status: CampaignStatus.ENDED
     }
   });
 
   return {
     campaignId: campaign.id,
-    distributedBudget: campaignBudget,
+    distributedBudget,
+    refund: refund
+      ? {
+          ...refund,
+          stellarTxUrl: getExplorerUrl(refund.stellarTxHash)
+        }
+      : null,
     payouts: results.map((entry) => ({
       ...entry,
-      stellarTxUrl: entry.stellarTxHash ? `${STELLAR_EXPERT_BASE_URL}/${entry.stellarTxHash}` : null
+      stellarTxUrl: getExplorerUrl(entry.stellarTxHash)
     }))
   };
 }
 
 async function claimPayout(userId: string, campaignId: string) {
-  const pendingPayout = await prisma.payout.findFirst({
-    where: {
-      userId,
-      campaignId,
-      status: "PENDING"
-    },
-    orderBy: {
-      createdAt: "asc"
-    },
+  const payoutSelection = {
     include: {
       campaign: {
         select: {
@@ -313,11 +447,32 @@ async function claimPayout(userId: string, campaignId: string) {
           name: true
         }
       }
+    },
+    orderBy: {
+      createdAt: "asc"
     }
-  });
+  } as const;
+
+  const pendingPayout =
+    (await prisma.payout.findFirst({
+      where: {
+        userId,
+        campaignId,
+        status: "PENDING"
+      },
+      ...payoutSelection
+    })) ??
+    (await prisma.payout.findFirst({
+      where: {
+        userId,
+        campaignId,
+        status: "FAILED"
+      },
+      ...payoutSelection
+    }));
 
   if (!pendingPayout) {
-    throw new Error("No pending payout found");
+    throw new Error("No pending or failed payout found");
   }
 
   if (!pendingPayout.user.walletAddress) {
@@ -352,7 +507,7 @@ async function claimPayout(userId: string, campaignId: string) {
       amount: toNumber(completed.amount),
       status: completed.status,
       stellarTxHash: completed.stellarTxHash,
-      stellarTxUrl: completed.stellarTxHash ? `${STELLAR_EXPERT_BASE_URL}/${completed.stellarTxHash}` : null
+      stellarTxUrl: getExplorerUrl(completed.stellarTxHash)
     };
 
     emitPayoutUpdate(completed.campaignId, {
@@ -364,7 +519,7 @@ async function claimPayout(userId: string, campaignId: string) {
     });
 
     return result;
-  } catch {
+  } catch (error) {
     await prisma.payout.update({
       where: {
         id: pendingPayout.id
@@ -374,8 +529,32 @@ async function claimPayout(userId: string, campaignId: string) {
       }
     });
 
-    throw new Error("Failed to claim payout");
+    let reason = extractHorizonErrorMessage(error);
+    if (reason.includes("op_underfunded")) {
+      try {
+        const sourcePublicKey = StellarSdk.Keypair
+          .fromSecret(decryptSecretKey(pendingPayout.campaign.stellarWalletSecretKeyEncrypted))
+          .publicKey();
+        const sourceBalance = await getWalletNativeBalance(sourcePublicKey);
+        const requestedAmount = toNumber(pendingPayout.amount);
+        reason = `Source campaign wallet is underfunded for this transfer. Balance=${sourceBalance.toFixed(7)} XLM, requested=${requestedAmount.toFixed(7)} XLM (plus fees/reserve).`;
+      } catch {
+        // Keep original Horizon reason if live balance lookup fails.
+      }
+    }
+    console.error("claimPayout failed", {
+      payoutId: pendingPayout.id,
+      campaignId,
+      userId,
+      destination: pendingPayout.user.walletAddress,
+      amount: toNumber(pendingPayout.amount),
+      reason
+    });
+    throw new Error(`Failed to claim payout: ${reason}`);
   }
 }
 
 export { claimPayout, executeCampaignPayouts };
+function getExplorerUrl(term: string | null) {
+  return term ? `${STELLAR_EXPERT_BASE_URL}${encodeURIComponent(term)}` : null;
+}

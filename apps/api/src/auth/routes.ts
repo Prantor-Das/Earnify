@@ -57,6 +57,14 @@ function issueJwt(user: AuthUser) {
   );
 }
 
+function parseUserRole(value: unknown): AuthUser["role"] | null {
+  if (value === "FOUNDER" || value === "USER") {
+    return value;
+  }
+
+  return null;
+}
+
 function getCookieOptions() {
   return {
     httpOnly: true,
@@ -130,6 +138,50 @@ authRouter.get("/me", requireAuth, async (request, response) => {
     sendError(response, "User not found", 404);
     return;
   }
+
+  sendSuccess(response, {
+    user
+  });
+});
+
+authRouter.patch("/role", requireAuth, async (request, response) => {
+  if (!request.user) {
+    sendError(response, "Unauthorized", 401);
+    return;
+  }
+
+  const role = parseUserRole((request.body as { role?: unknown }).role);
+  if (!role) {
+    sendError(response, "role must be FOUNDER or USER", 400);
+    return;
+  }
+
+  const user = await prisma.user.update({
+    where: {
+      id: request.user.id
+    },
+    data: {
+      role
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      avatar: true,
+      role: true,
+      walletAddress: true
+    }
+  });
+
+  const token = issueJwt({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    avatar: user.avatar,
+    role: user.role,
+    walletAddress: user.walletAddress
+  });
+  response.cookie(jwtCookieName, token, getCookieOptions());
 
   sendSuccess(response, {
     user

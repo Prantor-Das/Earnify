@@ -81,7 +81,7 @@ function startEngagementCron() {
   engagementCronTaskStarted = true;
 
   // Run every 30 minutes
-  cron.schedule("*/30 * * * *", () => {
+  cron.schedule("0 0 * * *", () => {
     void runEngagementRefreshCycle().catch((error: unknown) => {
       console.error("Scheduled engagement refresh failed", error);
     });

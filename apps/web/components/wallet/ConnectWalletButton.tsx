@@ -29,13 +29,12 @@ export function ConnectWalletButton() {
         href="https://freighter.app"
         target="_blank"
         rel="noreferrer"
-        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-semibold text-secondary transition-transform hover:-translate-y-0.5"
+        className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)]/30 bg-[var(--color-surface)]/50 px-4 py-2 text-xs font-bold text-white backdrop-blur-sm transition-transform hover:-translate-y-0.5 shadow-sm"
         title="Install the Freighter browser extension to connect your Stellar wallet"
       >
         <span
           aria-hidden
-          className="inline-block h-2 w-2 rounded-full"
-          style={{ backgroundColor: "var(--color-muted)" }}
+          className="inline-block h-2 w-2 rounded-full bg-[var(--color-muted)]"
         />
         Install Freighter
       </a>
@@ -49,18 +48,14 @@ export function ConnectWalletButton() {
         <button
           type="button"
           onClick={() => setShowDisconnect((v) => !v)}
-          className="inline-flex items-center gap-1.5 rounded-md border border-success/40 px-3 py-1.5 text-xs font-semibold text-success transition-transform hover:-translate-y-0.5"
-          style={{
-            backgroundColor: "color-mix(in srgb, var(--color-success) 10%, var(--color-background))"
-          }}
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--color-success)]/30 bg-[var(--color-success)]/10 px-4 py-2 text-xs font-bold text-[var(--color-success)] backdrop-blur-sm transition-transform hover:-translate-y-0.5 shadow-[0_0_10px_-3px_rgba(16,185,129,0.2)]"
           title={walletAddress}
           aria-expanded={showDisconnect}
           aria-haspopup="true"
         >
           <span
             aria-hidden
-            className="inline-block h-2 w-2 rounded-full"
-            style={{ backgroundColor: "var(--color-success)" }}
+            className="inline-block h-2 w-2 rounded-full bg-[var(--color-success)] animate-pulse"
           />
           {truncate(walletAddress)}
         </button>
@@ -74,11 +69,11 @@ export function ConnectWalletButton() {
               onClick={() => setShowDisconnect(false)}
             />
             <div
-              className="absolute right-0 top-full z-50 mt-1.5 min-w-[160px] rounded-md border border-border bg-surface p-1 shadow-lg"
+              className="absolute right-0 top-full z-50 mt-2 min-w-[180px] overflow-hidden rounded-xl border border-[var(--color-border)]/50 bg-[#0D0F14]/90 p-1.5 shadow-2xl backdrop-blur-xl"
               role="menu"
             >
-              <p className="px-3 py-1.5 text-[11px] text-muted break-all">{walletAddress}</p>
-              <hr className="my-1 border-border" />
+              <p className="px-3 py-2 text-[11px] text-[var(--color-muted)] break-all font-mono">{walletAddress}</p>
+              <div className="my-1 h-px w-full bg-[var(--color-border)]/30" />
               <button
                 type="button"
                 role="menuitem"
@@ -86,9 +81,9 @@ export function ConnectWalletButton() {
                   disconnectWallet();
                   setShowDisconnect(false);
                 }}
-                className="w-full rounded px-3 py-1.5 text-left text-xs font-semibold text-danger hover:bg-danger/10"
+                className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-[var(--color-danger)] transition-colors hover:bg-[var(--color-danger)]/10"
               >
-                Disconnect
+                Disconnect Wallet
               </button>
             </div>
           </>
@@ -99,22 +94,18 @@ export function ConnectWalletButton() {
 
   // ---- Not connected ----
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex flex-col items-end gap-1.5">
       <button
         type="button"
         onClick={() => { void connectWallet(); }}
         disabled={isConnecting}
-        className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-secondary disabled:cursor-not-allowed disabled:opacity-60 transition-transform hover:-translate-y-0.5"
-        style={{
-          background:
-            "linear-gradient(120deg, color-mix(in srgb, var(--color-primary) 16%, white), var(--color-surface))"
-        }}
+        className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)] px-5 py-2 text-xs font-bold text-white shadow-[0_0_15px_-3px_rgba(99,102,241,0.4)] backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_0_20px_-3px_rgba(99,102,241,0.6)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
       >
         {isConnecting ? (
           <>
             <span
               aria-hidden
-              className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+              className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"
             />
             Connecting…
           </>
@@ -122,15 +113,14 @@ export function ConnectWalletButton() {
           <>
             <span
               aria-hidden
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ backgroundColor: "var(--color-accent)" }}
+              className="inline-block h-2 w-2 rounded-full bg-white/80"
             />
             Connect Wallet
           </>
         )}
       </button>
       {connectError && (
-        <p className="text-[11px] text-danger">{connectError}</p>
+        <p className="text-[11px] font-medium text-[var(--color-danger)]">{connectError}</p>
       )}
     </div>
   );

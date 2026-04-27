@@ -8,13 +8,6 @@ const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const googleCallbackUrl = process.env.GOOGLE_CALLBACK_URL ?? "http://localhost:4000/api/auth/google/callback";
 
-const founderEmails = new Set(
-  (process.env.FOUNDER_EMAILS ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean)
-);
-
 function toAuthUser(user: {
   id: string;
   email: string;
@@ -54,19 +47,11 @@ if (!googleClientId || !googleClientSecret) {
 
           const name = profile.displayName || email.split("@")[0] || "Earnify User";
           const avatar = profile.photos?.[0]?.value ?? null;
-          const isFounder = founderEmails.has(email);
-
           const existingUser = await prisma.user.findUnique({
             where: { email }
           });
 
-          const role: UserRole = existingUser
-            ? existingUser.role === "FOUNDER" || isFounder
-              ? "FOUNDER"
-              : "USER"
-            : isFounder
-              ? "FOUNDER"
-              : "USER";
+          const role: UserRole = existingUser ? existingUser.role : "USER";
 
           const user = existingUser
             ? await prisma.user.update({

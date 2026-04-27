@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { useAuth } from "../../components/auth/useAuth";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const { isAuthenticated, loading, loginWithGoogle } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -21,45 +21,74 @@ export default function LoginPage() {
   }, [isAuthenticated, loading, router, searchParams]);
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-6 py-14">
+    <main className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-6 py-14">
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(40rem 24rem at 8% 10%, color-mix(in srgb, var(--color-secondary) 24%, transparent), transparent), radial-gradient(34rem 20rem at 92% 80%, color-mix(in srgb, var(--color-accent) 35%, transparent), transparent)"
+            "radial-gradient(48rem 24rem at 8% 12%, rgba(245,158,11,0.14), transparent), radial-gradient(46rem 20rem at 88% 84%, rgba(255,255,255,0.08), transparent)"
         }}
       />
 
-      <section
-        className="relative mx-auto flex w-full max-w-md flex-col gap-6 rounded-xl border border-border p-8"
-        style={{
-          backgroundColor: "color-mix(in srgb, var(--color-surface) 92%, white)",
-          boxShadow: "0 28px 80px color-mix(in srgb, var(--color-secondary) 14%, transparent)"
-        }}
-      >
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">Earnify Access</p>
-        <h1 className="text-3xl font-semibold leading-tight text-secondary">Sign in to launch and track campaigns</h1>
-        <p className="text-sm leading-6 text-muted">
-          Use your Google account to continue. Earnify will issue a secure session token in an httpOnly cookie.
-        </p>
+      <section className="mx-auto grid w-full max-w-5xl items-stretch gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <article className="surface-card motion-rise rounded-sm p-8 sm:p-10 lg:p-12">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">Secure Access</p>
+          <h1 className="mt-4 text-3xl font-semibold text-zinc-100 sm:text-4xl">Sign in to manage campaigns and payouts</h1>
+          <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-400">
+            Continue with Google to access your dashboard. Session authentication is handled by secure cookies, and wallet actions remain under your control.
+          </p>
 
-        <button
-          type="button"
-          onClick={loginWithGoogle}
-          className="group inline-flex items-center justify-center gap-3 rounded-md border border-border px-5 py-3 text-sm font-semibold transition-transform duration-150 ease-out hover:-translate-y-0.5"
-          style={{
-            background: "linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 16%, white), var(--color-surface))",
-            color: "var(--color-secondary)"
-          }}
-        >
-          <span
-            aria-hidden
-            className="inline-block h-2.5 w-2.5 rounded-full"
-            style={{ backgroundColor: "var(--color-accent)", boxShadow: "0 0 0 6px color-mix(in srgb, var(--color-accent) 25%, transparent)" }}
-          />
-          Continue with Google
-        </button>
+          <div className="mt-10 space-y-3">
+            <button
+              type="button"
+              onClick={loginWithGoogle}
+              className="inline-flex w-full items-center justify-center gap-3 border border-[var(--color-primary)] bg-[var(--color-primary)] px-6 py-4 text-sm font-bold uppercase tracking-[0.08em] text-black transition-colors hover:bg-[var(--color-accent)]"
+            >
+              <span aria-hidden className="inline-block h-2.5 w-2.5 animate-pulse bg-black" />
+              Continue with Google
+            </button>
+            <p className="text-xs text-zinc-500">By continuing, you agree to the platform terms and policy.</p>
+          </div>
+        </article>
+
+        <aside className="surface-card rounded-sm p-8">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-300">Why Earnify</h2>
+          <ul className="mt-5 space-y-3 text-sm text-zinc-400">
+            <li className="border border-zinc-800 bg-black/30 p-3">Live campaign states with transparent status tracking.</li>
+            <li className="border border-zinc-800 bg-black/30 p-3">Real-time leaderboard updates and performance insights.</li>
+            <li className="border border-zinc-800 bg-black/30 p-3">On-chain payout visibility through Stellar transaction links.</li>
+          </ul>
+        </aside>
       </section>
     </main>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <main className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-6 py-14">
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(48rem 24rem at 8% 12%, rgba(245,158,11,0.14), transparent), radial-gradient(46rem 20rem at 88% 84%, rgba(255,255,255,0.08), transparent)"
+        }}
+      />
+
+      <section className="mx-auto grid w-full max-w-5xl items-stretch gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <article className="surface-card motion-rise rounded-sm p-8 sm:p-10 lg:p-12">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">Secure Access</p>
+          <h1 className="mt-4 text-3xl font-semibold text-zinc-100 sm:text-4xl">Sign in to manage campaigns and payouts</h1>
+        </article>
+      </section>
+    </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

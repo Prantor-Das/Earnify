@@ -53,6 +53,70 @@ async function getLeaderboard(campaignId: string, limit = 50): Promise<Leaderboa
     _count: { _all: true }
   });
 
+  // Pull latest verified TWITTER post engagement per post, then aggregate
+  // per user so cards can show real X metrics.
+  const twitterEngagementRows = await prisma.postEngagement.findMany({
+    where: {
+      post: {
+        campaignId,
+        userId: { in: userIds },
+        status: "VERIFIED",
+        platform: "TWITTER"
+      }
+    },
+    orderBy: { fetchedAt: "desc" },
+    select: {
+      postId: true,
+      views: true,
+      likes: true,
+      shares: true,
+      comments: true,
+      fetchedAt: true,
+      post: {
+        select: { userId: true }
+      }
+    }
+  });
+
+  const seenTwitterPostIds = new Set<string>();
+  const xStatsByUserId = new Map<
+    string,
+    {
+      views: number;
+      likes: number;
+      replies: number;
+      reposts: number;
+      lastSyncedAt: string | null;
+    }
+  >();
+
+  for (const row of twitterEngagementRows) {
+    if (seenTwitterPostIds.has(row.postId)) {
+      continue;
+    }
+    seenTwitterPostIds.add(row.postId);
+
+    const current = xStatsByUserId.get(row.post.userId) ?? {
+      views: 0,
+      likes: 0,
+      replies: 0,
+      reposts: 0,
+      lastSyncedAt: null
+    };
+
+    current.views += row.views;
+    current.likes += row.likes;
+    current.replies += row.comments;
+    current.reposts += row.shares;
+
+    const fetchedAtIso = row.fetchedAt.toISOString();
+    if (!current.lastSyncedAt || fetchedAtIso > current.lastSyncedAt) {
+      current.lastSyncedAt = fetchedAtIso;
+    }
+
+    xStatsByUserId.set(row.post.userId, current);
+  }
+
   // Build platform map: userId → Set<SocialPlatform>
   const platformsByUserId = new Map<string, Set<SocialPlatform>>();
   const postCountByUserId = new Map<string, number>();
@@ -85,7 +149,14 @@ async function getLeaderboard(campaignId: string, limit = 50): Promise<Leaderboa
       estimatedEarnings: participant.estimatedEarnings,
       platforms: Array.from(platformsByUserId.get(participant.userId) ?? []),
       lastUpdatedAt: participant.updatedAt.toISOString(),
-      change: resolveRankChange(previousRanks?.[participant.userId] ?? null, rank)
+      change: resolveRankChange(previousRanks?.[participant.userId] ?? null, rank),
+      xStats: xStatsByUserId.get(participant.userId) ?? {
+        views: 0,
+        likes: 0,
+        replies: 0,
+        reposts: 0,
+        lastSyncedAt: null
+      }
     };
   });
 
@@ -139,7 +210,8 @@ async function refreshLeaderboard(campaignId: string): Promise<void> {
         views: engagement?.views ?? 0,
         likes: engagement?.likes ?? 0,
         shares: engagement?.shares ?? 0,
-        comments: engagement?.comments ?? 0
+        comments: engagement?.comments ?? 0,
+        authenticityScore: post.authenticityScore
       });
 
       await prisma.score.upsert({

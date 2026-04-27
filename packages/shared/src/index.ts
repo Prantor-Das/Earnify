@@ -1,5 +1,5 @@
 export type UserRole = "FOUNDER" | "USER";
-export type CampaignStatus = "ACTIVE" | "PAUSED" | "ENDED";
+export type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ENDED";
 export type SocialPlatform = "TWITTER" | "LINKEDIN" | "INSTAGRAM";
 export type PostStatus = "PENDING" | "VERIFIED" | "REJECTED";
 export type PayoutStatus = "PENDING" | "COMPLETED" | "FAILED";
@@ -51,4 +51,11 @@ export interface LeaderboardEntry {
   platforms: SocialPlatform[];
   lastUpdatedAt: string | null;
   change: "up" | "down" | "same";
+  xStats?: {
+    views: number;
+    likes: number;
+    replies: number;
+    reposts: number;
+    lastSyncedAt: string | null;
+  };
 }

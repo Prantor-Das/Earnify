@@ -50,6 +50,7 @@ export type WalletContextValue = {
 const WalletContext = createContext<WalletContextValue | null>(null);
 
 const STORAGE_KEY = "earnify_wallet";
+const DISCONNECTED_KEY = "earnify_wallet_disconnected";
 const apiBaseUrl =
   typeof process !== "undefined"
     ? (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000")
@@ -96,6 +97,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }
 
       setIsFreighterInstalled(true);
+      const manuallyDisconnected = localStorage.getItem(DISCONNECTED_KEY) === "1";
+
+      if (manuallyDisconnected) {
+        localStorage.removeItem(STORAGE_KEY);
+        if (!cancelled) setHydrated(true);
+        return;
+      }
 
       // Check if Freighter is still connected/allowed
       try {
@@ -163,6 +171,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
       setWalletAddress(result.address);
       localStorage.setItem(STORAGE_KEY, result.address);
+      localStorage.removeItem(DISCONNECTED_KEY);
       void persistWalletToApi(result.address);
     } catch (err) {
       setConnectError(err instanceof Error ? err.message : "Failed to connect wallet");
@@ -175,6 +184,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const disconnectWallet = useCallback(() => {
     setWalletAddress(null);
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(DISCONNECTED_KEY, "1");
     setConnectError(null);
   }, []);
 

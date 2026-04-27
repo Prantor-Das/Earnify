@@ -4,7 +4,7 @@ import { prisma } from "@earnify/db";
 import * as StellarSdk from "@stellar/stellar-sdk";
 
 import { requireAuth } from "../../middleware/auth.ts";
-import { triggerCreatorPayout } from "../services/sorobanClient.ts";
+import { claimPayout } from "../services/payoutService.ts";
 import { sendError, sendSuccess } from "../utils/api-response.ts";
 
 const usersRouter = Router();
@@ -27,6 +27,10 @@ function toNumber(value: unknown) {
 
 function isValidStellarPublicKey(value: string) {
   return StellarSdk.StrKey.isValidEd25519PublicKey(value);
+}
+
+function getExplorerUrl(term: string | null) {
+  return term ? `https://stellar.expert/explorer/testnet/search?term=${encodeURIComponent(term)}` : null;
 }
 
 usersRouter.get("/:id/payouts", requireAuth, async (request, response) => {
@@ -90,11 +94,35 @@ usersRouter.get("/:id/payouts", requireAuth, async (request, response) => {
       status: payout.status,
       stellarTxHash: payout.stellarTxHash,
       stellarTxUrl: payout.stellarTxHash
-        ? `https://testnet.stellar.expert/explorer/testnet/tx/${payout.stellarTxHash}`
+        ? getExplorerUrl(payout.stellarTxHash)
         : null,
       createdAt: payout.createdAt.toISOString()
     }))
   });
+});
+
+// PATCH /api/users/me/wallet — convenience endpoint for the authenticated user
+// (used by WalletProvider after Freighter connection)
+usersRouter.patch("/me/wallet", requireAuth, async (request, response) => {
+  if (!request.user) {
+    sendError(response, "Unauthorized", 401);
+    return;
+  }
+
+  const walletAddress = (request.body as { walletAddress?: string }).walletAddress?.trim();
+
+  if (!walletAddress || !isValidStellarPublicKey(walletAddress)) {
+    sendError(response, "walletAddress must be a valid Stellar public key", 400);
+    return;
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: request.user.id },
+    data: { walletAddress },
+    select: { id: true, walletAddress: true }
+  });
+
+  sendSuccess(response, updatedUser);
 });
 
 usersRouter.patch("/:id/wallet", requireAuth, async (request, response) => {
@@ -137,34 +165,11 @@ usersRouter.patch("/:id/wallet", requireAuth, async (request, response) => {
   sendSuccess(response, updatedUser);
 });
 
-// PATCH /api/users/me/wallet — convenience endpoint for the authenticated user
-// (used by WalletProvider after Freighter connection)
-usersRouter.patch("/me/wallet", requireAuth, async (request, response) => {
-  if (!request.user) {
-    sendError(response, "Unauthorized", 401);
-    return;
-  }
-
-  const walletAddress = (request.body as { walletAddress?: string }).walletAddress?.trim();
-
-  if (!walletAddress || !isValidStellarPublicKey(walletAddress)) {
-    sendError(response, "walletAddress must be a valid Stellar public key", 400);
-    return;
-  }
-
-  const updatedUser = await prisma.user.update({
-    where: { id: request.user.id },
-    data: { walletAddress },
-    select: { id: true, walletAddress: true }
-  });
-
-  sendSuccess(response, updatedUser);
-});
-
 usersRouter.post("/:id/payouts/:campaignId/claim", requireAuth, async (request, response) => {
   const userId = parseIdParam(request.params.id);
   const campaignId = parseIdParam(request.params.campaignId);
-  const creatorSecret = (request.body as { creatorSecret?: string }).creatorSecret;
+  const body = (request.body ?? {}) as { walletAddress?: string };
+  const walletAddress = typeof body.walletAddress === "string" ? body.walletAddress.trim() : undefined;
 
   if (!userId || !campaignId) {
     sendError(response, "User id and campaign id are required", 400);
@@ -181,25 +186,6 @@ usersRouter.post("/:id/payouts/:campaignId/claim", requireAuth, async (request, 
     return;
   }
 
-  if (!creatorSecret) {
-    sendError(response, "creatorSecret is required", 400);
-    return;
-  }
-
-  const campaign = await prisma.campaign.findUnique({
-    where: {
-      id: campaignId
-    },
-    select: {
-      stellarContractId: true
-    }
-  });
-
-  if (!campaign?.stellarContractId) {
-    sendError(response, "Campaign contract not found", 404);
-    return;
-  }
-
   const user = await prisma.user.findUnique({
     where: {
       id: userId
@@ -209,44 +195,36 @@ usersRouter.post("/:id/payouts/:campaignId/claim", requireAuth, async (request, 
     }
   });
 
-  if (!user?.walletAddress) {
-    sendError(response, "Wallet address is required to claim payout", 400);
-    return;
-  }
+  let resolvedWalletAddress = user?.walletAddress ?? null;
 
-  let secretPublicKey: string;
-  try {
-    secretPublicKey = StellarSdk.Keypair.fromSecret(creatorSecret).publicKey();
-  } catch {
-    sendError(response, "creatorSecret must be a valid Stellar secret key", 400);
-    return;
-  }
+  if (!resolvedWalletAddress && walletAddress) {
+    if (!isValidStellarPublicKey(walletAddress)) {
+      sendError(response, "walletAddress must be a valid Stellar public key", 400);
+      return;
+    }
 
-  if (secretPublicKey !== user.walletAddress) {
-    sendError(response, "creatorSecret does not match your connected wallet", 400);
-    return;
-  }
-
-  try {
-    const result = await triggerCreatorPayout(campaign.stellarContractId, creatorSecret);
-
-    const payout = await prisma.payout.create({
-      data: {
-        userId,
-        campaignId,
-        amount: result.amountXLM,
-        status: "COMPLETED",
-        stellarTxHash: result.txHash
-      }
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { walletAddress },
+      select: { walletAddress: true }
     });
+    resolvedWalletAddress = updatedUser.walletAddress;
+  }
 
+  if (!resolvedWalletAddress) {
+    sendError(response, "Wallet address is required to claim payout. Connect Freighter and try again.", 400);
+    return;
+  }
+
+  try {
+    const payout = await claimPayout(userId, campaignId);
     sendSuccess(response, {
       id: payout.id,
       status: payout.status,
       amount: toNumber(payout.amount),
       stellarTxHash: payout.stellarTxHash,
       stellarTxUrl: payout.stellarTxHash
-        ? `https://testnet.stellar.expert/explorer/testnet/tx/${payout.stellarTxHash}`
+        ? getExplorerUrl(payout.stellarTxHash)
         : null
     });
   } catch (error) {

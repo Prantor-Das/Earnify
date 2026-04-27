@@ -3,7 +3,6 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import * as StellarSdk from "@stellar/stellar-sdk";
 
 const HORIZON_URL = "https://horizon-testnet.stellar.org";
-const FRIENDBOT_URL = "https://friendbot.stellar.org";
 
 const horizon = new StellarSdk.Horizon.Server(HORIZON_URL);
 
@@ -14,25 +13,26 @@ type CampaignWallet = {
 
 async function createCampaignWallet(): Promise<CampaignWallet> {
   const keypair = StellarSdk.Keypair.random();
-  const publicKey = keypair.publicKey();
-
-  const friendbotResponse = await fetch(`${FRIENDBOT_URL}?addr=${encodeURIComponent(publicKey)}`);
-
-  if (!friendbotResponse.ok) {
-    throw new Error("Friendbot funding failed");
-  }
-
   return {
-    publicKey,
+    publicKey: keypair.publicKey(),
     secretKey: keypair.secret()
   };
 }
 
 async function getWalletBalance(publicKey: string): Promise<number> {
-  const account = await horizon.loadAccount(publicKey);
-  const nativeBalance = account.balances.find((balance) => balance.asset_type === "native");
+  try {
+    const account = await horizon.loadAccount(publicKey);
+    const nativeBalance = account.balances.find((balance) => balance.asset_type === "native");
 
-  return Number(nativeBalance?.balance ?? 0);
+    return Number(nativeBalance?.balance ?? 0);
+  } catch (error) {
+    // If the wallet hasn't been created/funded yet, treat as zero balance.
+    if (error instanceof Error && error.message.toLowerCase().includes("not found")) {
+      return 0;
+    }
+
+    throw error;
+  }
 }
 
 function encryptSecretKey(secretKey: string): string {

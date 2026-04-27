@@ -9,6 +9,7 @@ type AuthContextValue = {
   loading: boolean;
   isAuthenticated: boolean;
   refreshAuth: () => Promise<void>;
+  switchRole: (role: AuthUser["role"]) => Promise<boolean>;
   loginWithGoogle: () => void;
   logout: () => Promise<void>;
 };
@@ -61,6 +62,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.body.removeChild(form);
   }, []);
 
+  const switchRole = useCallback(async (role: AuthUser["role"]) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/auth/role`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ role })
+      });
+
+      const payload = await parseJson<{ user: AuthUser }>(response);
+      if (!response.ok || !payload.success || !payload.data?.user) {
+        return false;
+      }
+
+      setUser(payload.data.user);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await fetch(`${apiBaseUrl}/api/auth/logout`, {
@@ -82,10 +106,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       isAuthenticated: Boolean(user),
       refreshAuth,
+      switchRole,
       loginWithGoogle,
       logout
     }),
-    [loading, loginWithGoogle, logout, refreshAuth, user]
+    [loading, loginWithGoogle, logout, refreshAuth, switchRole, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

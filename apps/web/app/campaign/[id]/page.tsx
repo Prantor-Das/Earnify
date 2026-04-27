@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 
 import type { ApiResponse, CampaignStatus, LeaderboardEntry, PostStatus, SocialPlatform } from "@earnify/shared";
 import { useParams } from "next/navigation";
-
+import { FundCampaignStep } from "../../../components/campaign/FundCampaignStep";
 import { BudgetBar } from "../../../components/BudgetBar";
 import { EmptyState } from "../../../components/EmptyState";
 import { ErrorBoundary } from "../../../components/ErrorBoundary";
@@ -15,8 +15,13 @@ import { StatusBadge } from "../../../components/StatusBadge";
 import { useAuth } from "../../../components/auth/useAuth";
 import { withAuth } from "../../../components/auth/withAuth";
 import { useToast } from "../../../components/toast/ToastProvider";
+import { useWallet } from "../../../components/wallet/WalletProvider";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+const HORIZON_URL = process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ?? "https://horizon-testnet.stellar.org";
+const NETWORK_PASSPHRASE =
+  process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE ?? "Test SDF Network ; September 2015";
+const FOUNDER_FEE_BUFFER_XLM = 10;
 
 type CampaignDetails = {
   id: string;
@@ -41,8 +46,6 @@ type CampaignDetails = {
     } | null;
   };
 };
-
-type ActiveTab = "leaderboard" | "submit";
 
 type PostSubmissionResponse = {
   postId: string;
@@ -79,6 +82,23 @@ type ContractInfo = {
   explorerUrl: string;
 };
 
+type FreighterSignFn = (
+  xdr: string,
+  opts: { networkPassphrase: string }
+) => Promise<{ signedTxXdr: string; error?: string }>;
+
+async function getFreighterSign(): Promise<FreighterSignFn | null> {
+  try {
+    const mod = await import("@stellar/freighter-api");
+    const api = (mod as unknown as { freighterApi?: { signTransaction: FreighterSignFn } }).freighterApi
+      ?? (mod as unknown as { signTransaction: FreighterSignFn });
+    if (typeof api?.signTransaction === "function") return api.signTransaction.bind(api);
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function truncateAddress(value: string) {
   return `${value.slice(0, 6)}...${value.slice(-6)}`;
 }
@@ -110,10 +130,10 @@ function getPayoutStatusStyle(status: PayoutStatus) {
 function CampaignNotFoundFallback({ message = "Campaign not found" }: { message?: string }) {
   return (
     <main className="min-h-screen px-4 py-8 sm:px-6 md:py-12 lg:px-10">
-      <section className="mx-auto w-full max-w-3xl rounded-xl border border-border bg-surface p-8 text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">404</p>
-        <h1 className="mt-3 text-2xl font-semibold text-secondary">Campaign unavailable</h1>
-        <p className="mt-2 text-sm text-muted">{message}</p>
+      <section className="mx-auto w-full max-w-3xl rounded-3xl border border-[var(--color-border)]/50 bg-[#0D0F14]/50 backdrop-blur-xl p-12 text-center shadow-2xl">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-primary)]">404</p>
+        <h1 className="mt-4 text-3xl font-bold text-white">Campaign unavailable</h1>
+        <p className="mt-3 text-base text-[var(--color-muted)]">{message}</p>
       </section>
     </main>
   );
@@ -121,17 +141,18 @@ function CampaignNotFoundFallback({ message = "Campaign not found" }: { message?
 
 function LeaderboardFallback() {
   return (
-    <div className="rounded-md border border-border bg-background p-4 text-sm text-danger">Leaderboard temporarily unavailable</div>
+    <div className="rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-5 text-sm text-[var(--color-danger)] font-medium">Leaderboard temporarily unavailable</div>
   );
 }
 
 function PostSubmissionFallback() {
-  return <div className="rounded-md border border-border bg-background p-4 text-sm text-danger">Try again</div>;
+  return <div className="rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-5 text-sm text-[var(--color-danger)] font-medium">Try again</div>;
 }
 
 function CampaignDetailsPage() {
   const { user } = useAuth();
   const { pushToast } = useToast();
+  const { walletAddress, isConnected: walletConnected } = useWallet();
   const params = useParams<{ id: string }>();
   const campaignId = params.id;
 
@@ -142,9 +163,6 @@ function CampaignDetailsPage() {
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [campaignMissing, setCampaignMissing] = useState(false);
-
-  const [activeTab, setActiveTab] = useState<ActiveTab>("leaderboard");
-  const [isLiveConnected, setIsLiveConnected] = useState(false);
 
   const [postUrl, setPostUrl] = useState("");
   const [platform, setPlatform] = useState<SocialPlatform>("TWITTER");
@@ -159,7 +177,6 @@ function CampaignDetailsPage() {
   const [showPayoutConfirm, setShowPayoutConfirm] = useState(false);
   const [triggeringPayout, setTriggeringPayout] = useState(false);
   const [payoutStreaming, setPayoutStreaming] = useState(false);
-  const [founderSecret, setFounderSecret] = useState("");
   const [contractInfo, setContractInfo] = useState<ContractInfo | null>(null);
 
   useEffect(() => {
@@ -223,6 +240,13 @@ function CampaignDetailsPage() {
   }, [campaign?.stats.topScorer]);
 
   const isFounderView = user?.role === "FOUNDER" && campaign?.founderId === user.id;
+  const isCampaignEnded = campaign?.status === "ENDED" || campaign?.status === "COMPLETED";
+  const canSubmitPost = !isFounderView && campaign?.status === "ACTIVE";
+  const flowSteps = [
+    { title: "1. Funded", done: Boolean(campaign?.contractId), detail: "Contract deployed and campaign wallet funded." },
+    { title: "2. Participate", done: (campaign?.stats.postCount ?? 0) > 0, detail: "Creators submit and verify campaign posts." },
+    { title: "3. Settle", done: campaign?.status === "ENDED", detail: "Campaign ends and remaining pool is settled." }
+  ];
 
   useEffect(() => {
     if (!campaignId || !isFounderView) {
@@ -294,8 +318,12 @@ function CampaignDetailsPage() {
   }, [campaignId]);
 
   const handleTriggerPayout = async () => {
-    if (!campaignId || !founderSecret.trim()) {
-      setPayoutError("Founder secret is required to authorize on-chain payout transactions");
+    if (!campaignId) {
+      return;
+    }
+
+    if (!walletConnected || !walletAddress) {
+      setPayoutError("Connect your founder Freighter wallet to end campaign on-chain");
       return;
     }
 
@@ -304,10 +332,65 @@ function CampaignDetailsPage() {
     setPayoutError(null);
 
     try {
+      const endTxResponse = await fetch(`${apiBaseUrl}/api/campaigns/${campaignId}/end-campaign-tx`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          founderPublicKey: walletAddress
+        })
+      });
+
+      const endTxPayload = (await endTxResponse.json()) as ApiResponse<{
+        xdr?: string;
+        networkPassphrase: string;
+        alreadyEnded?: boolean;
+      }>;
+
+      if (!endTxResponse.ok || !endTxPayload.success || !endTxPayload.data) {
+        setPayoutError(endTxPayload.error ?? "Failed to prepare end-campaign transaction");
+        setPayoutStreaming(false);
+        return;
+      }
+
       const streamUrl = new URL(`${apiBaseUrl}/api/campaigns/${campaignId}/payout`);
-      streamUrl.searchParams.set("founderSecret", founderSecret.trim());
+      if (!endTxPayload.data.alreadyEnded) {
+        if (!endTxPayload.data.xdr) {
+          setPayoutError("Missing end-campaign transaction payload");
+          setPayoutStreaming(false);
+          return;
+        }
+
+        const freighterSign = await getFreighterSign();
+        if (!freighterSign) {
+          setPayoutError("Freighter extension not available");
+          setPayoutStreaming(false);
+          return;
+        }
+
+        const signResult = await freighterSign(endTxPayload.data.xdr, {
+          networkPassphrase: endTxPayload.data.networkPassphrase
+        });
+        if (signResult.error) {
+          setPayoutError(`Freighter signing failed: ${signResult.error}`);
+          setPayoutStreaming(false);
+          return;
+        }
+
+        const sdk = await import("@stellar/stellar-sdk");
+        const horizon = new sdk.Horizon.Server(HORIZON_URL);
+        const signedTx = sdk.TransactionBuilder.fromXDR(
+          signResult.signedTxXdr,
+          endTxPayload.data.networkPassphrase ?? NETWORK_PASSPHRASE
+        );
+        const submission = await horizon.submitTransaction(signedTx);
+        streamUrl.searchParams.set("endTxHash", submission.hash);
+      }
 
       const eventSource = new EventSource(streamUrl.toString(), { withCredentials: true });
+      let streamCompleted = false;
 
       eventSource.addEventListener("payout", (event) => {
         const data = JSON.parse(event.data) as {
@@ -337,12 +420,80 @@ function CampaignDetailsPage() {
         });
       });
 
-      eventSource.addEventListener("done", () => {
+      eventSource.addEventListener("campaign-ended", () => {
+        setCampaign((previous) => {
+          if (!previous) {
+            return previous;
+          }
+
+          return {
+            ...previous,
+            status: "ENDED"
+          };
+        });
+      });
+
+      eventSource.addEventListener("refund", (event) => {
+        try {
+          const data = JSON.parse((event as MessageEvent).data) as {
+            destination: string | null;
+            amountXLM: number;
+            status: "COMPLETED" | "FAILED" | "SKIPPED";
+            txUrl: string | null;
+          };
+          pushToast({
+            type: data.status === "COMPLETED" ? "success" : "warning",
+            title: "Pool settlement",
+            message:
+              data.status === "COMPLETED"
+                ? `Refunded ${data.amountXLM.toFixed(2)} XLM to founder wallet.`
+                : "Pool refund could not be completed automatically."
+          });
+        } catch {
+          // ignore malformed stream events
+        }
+      });
+
+      eventSource.addEventListener("done", (event) => {
+        const payload = JSON.parse((event as MessageEvent).data) as { balanceXLM?: number };
+        setCampaign((previous) => {
+          if (!previous) {
+            return previous;
+          }
+
+          const balance = Number(payload.balanceXLM ?? 0);
+          return {
+            ...previous,
+            status: "ENDED",
+            remainingBudget: balance,
+            stats: {
+              ...previous.stats,
+              remainingBudget: balance
+            }
+          };
+        });
+        streamCompleted = true;
         setPayoutStreaming(false);
         eventSource.close();
       });
 
+      eventSource.addEventListener("payout-error", (event) => {
+        streamCompleted = true;
+        setPayoutStreaming(false);
+        try {
+          const payload = JSON.parse((event as MessageEvent).data) as { message?: string };
+          setPayoutError(payload.message ?? "Failed to execute payout stream");
+        } catch {
+          setPayoutError("Failed to execute payout stream");
+        }
+        eventSource.close();
+      });
+
       eventSource.addEventListener("error", () => {
+        if (streamCompleted) {
+          return;
+        }
+
         setPayoutStreaming(false);
         setPayoutError("Payout stream disconnected before completion");
         eventSource.close();
@@ -522,381 +673,321 @@ function CampaignDetailsPage() {
 
   return (
     <ErrorBoundary fallback={<CampaignNotFoundFallback />} resetKey={campaignId}>
-      <main className="min-h-screen px-4 py-6 sm:px-6 md:py-8 lg:px-10">
-        <section className="mx-auto w-full max-w-6xl space-y-6 lg:space-y-8">
-        <header
-          className="space-y-5 rounded-lg border border-border p-5 sm:p-6"
-          style={{
-            background: "linear-gradient(130deg, color-mix(in srgb, var(--color-secondary) 10%, white), var(--color-surface))"
-          }}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-xl font-semibold text-secondary sm:text-2xl lg:text-3xl">{campaign.title}</h1>
-
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-1 text-xs font-semibold"
-                style={{
-                  color: isLiveConnected ? "var(--color-success)" : "var(--color-muted)",
-                  backgroundColor: "color-mix(in srgb, var(--color-surface) 80%, transparent)"
-                }}
-              >
-                <span
-                  aria-hidden
-                  className={`inline-block h-2 w-2 rounded-full ${isLiveConnected ? "animate-pulse" : ""}`}
-                  style={{
-                    backgroundColor: isLiveConnected ? "var(--color-success)" : "var(--color-muted)"
-                  }}
-                />
-                Live
-              </span>
-            </div>
-
-            <StatusBadge status={campaign.status} />
-          </div>
-
-          <p className="text-sm leading-7 text-muted">{campaign.description}</p>
-
-          <BudgetBar totalBudget={campaign.totalBudget} remainingBudget={campaign.remainingBudget} />
-
-          <div className="grid gap-3 text-sm text-muted sm:grid-cols-2">
-            <p>
-              Posts tracked: <span className="font-semibold text-secondary">{campaign.stats.postCount}</span>
-            </p>
-            <p>
-              Top scorer: <span className="font-semibold text-secondary">{topScorerText}</span>
-            </p>
-          </div>
-        </header>
-
-        {isFounderView ? (
-          <section className="space-y-4 rounded-lg border border-border bg-surface p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">Founder Payout Console</p>
-                <p className="mt-1 text-sm text-muted">Distribute campaign budget on Stellar testnet and monitor transaction flow.</p>
-              </div>
-
-              {campaign.status === "ACTIVE" ? (
-                <button
-                  type="button"
-                  onClick={() => setShowPayoutConfirm(true)}
-                  disabled={triggeringPayout || payoutStreaming}
-                  className="rounded-md border border-border px-4 py-2 text-sm font-semibold text-secondary disabled:opacity-60"
-                  style={{
-                    background:
-                      "linear-gradient(120deg, color-mix(in srgb, var(--color-accent) 24%, white), var(--color-surface))"
-                  }}
-                >
-                  {triggeringPayout || payoutStreaming ? "Streaming..." : "Trigger Payout"}
-                </button>
-              ) : null}
-            </div>
-
-            <div className="grid gap-2">
-              <label htmlFor="founder-secret" className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
-                Founder Stellar Secret
-              </label>
-              <input
-                id="founder-secret"
-                type="password"
-                value={founderSecret}
-                onChange={(event) => setFounderSecret(event.target.value)}
-                placeholder="S..."
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-secondary outline-none focus:border-primary"
-              />
-            </div>
-
-            {payoutError ? <p className="text-sm text-danger">{payoutError}</p> : null}
-
-            {showPayoutConfirm ? (
-              <div className="rounded-md border border-border bg-background p-4">
-                <p className="text-sm text-secondary">
-                  This will distribute <span className="font-semibold">{campaign.remainingBudget.toFixed(2)} XLM</span> to{" "}
-                  <span className="font-semibold">{leaderboard.length}</span> creators.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={handleTriggerPayout}
-                    disabled={triggeringPayout}
-                    className="rounded-md border border-border px-3 py-1.5 text-sm font-semibold text-secondary"
-                    style={{
-                      background:
-                        "linear-gradient(120deg, color-mix(in srgb, var(--color-secondary) 18%, white), var(--color-surface))"
-                    }}
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowPayoutConfirm(false)}
-                    className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-semibold text-muted"
-                  >
-                    Cancel
-                  </button>
+      <main className="min-h-screen bg-[var(--color-background)] text-[#e2e8f0] pb-20">
+        <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+          
+          {/* Hero Section */}
+          <header className="relative overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 backdrop-blur-xl p-8 shadow-2xl">
+            <div className="absolute top-0 left-0 h-1 w-full bg-[var(--color-secondary)]"></div>
+            
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 relative z-10">
+              <div className="space-y-4 max-w-3xl">
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-3xl font-bold text-white sm:text-4xl">{campaign.title}</h1>
+                  <StatusBadge status={campaign.status} />
+                </div>
+                
+                <p className="text-lg leading-relaxed text-[var(--color-muted)]">{campaign.description}</p>
+                
+                <div className="flex items-center gap-3 pt-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-primary)] text-white font-bold">
+                    F
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--color-muted)]">Campaign Founder</p>
+                    <p className="text-sm font-semibold text-white truncate max-w-[200px]">{truncateAddress(campaign.founderId)}</p>
+                  </div>
                 </div>
               </div>
-            ) : null}
 
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-secondary">Live tx feed</h3>
-
-              {payoutLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-14 w-full" />
-                  <Skeleton className="h-14 w-full" />
-                  <Skeleton className="h-14 w-full" />
-                </div>
-              ) : null}
-
-              {!payoutLoading && payouts.length === 0 ? (
-                <EmptyState
-                  variant="payouts"
-                  title="No payouts"
-                  description="Transaction cards will appear here once payout distribution starts."
-                />
-              ) : null}
-
-              {!payoutLoading && payouts.length > 0 ? (
-                <ul className="space-y-3">
-                  {payouts.map((payout) => (
-                    <li
-                      key={payout.id}
-                      className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-[1fr_auto] sm:items-center"
-                      style={{ backgroundColor: "color-mix(in srgb, var(--color-surface) 88%, var(--color-background))" }}
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-secondary">{payout.userName}</p>
-                        <p className="text-xs text-muted">{payout.amount.toFixed(2)} XLM</p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span
-                          className="rounded-full border px-2 py-1 text-xs font-semibold"
-                          style={getPayoutStatusStyle(payout.status)}
-                        >
-                          {payout.status}
-                        </span>
-
-                        {payout.status === "COMPLETED" ? (
-                          <span className="rounded-full border border-success/40 bg-success/10 px-2 py-1 text-xs font-semibold text-success">
-                            On-chain verified
-                          </span>
-                        ) : null}
-
-                        {payout.stellarTxUrl ? (
-                          <a
-                            href={payout.stellarTxUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="max-w-55 truncate text-xs font-semibold text-secondary underline"
-                          >
-                            {payout.stellarTxHash}
-                          </a>
-                        ) : (
-                          <span className="text-xs text-muted">No tx hash</span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          </section>
-        ) : null}
-
-        {campaign.contractId ? (
-          <section className="rounded-lg border border-border bg-surface p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-accent">Contract Info</p>
-                <p className="mt-1 text-sm text-muted">
-                  {contractInfo
-                    ? "Live on-chain snapshot from Soroban RPC (updates every 30s)."
-                    : "Soroban contract deployed for this campaign."}
-                </p>
-              </div>
-              <a
-                href={`https://testnet.stellar.expert/explorer/testnet/contract/${campaign.contractId}`}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-semibold text-secondary"
-              >
-                View on Stellar Expert ↗
-              </a>
-            </div>
-
-            <div className="mt-4 grid gap-3 text-sm text-secondary sm:grid-cols-2 lg:grid-cols-4">
-              {/* Contract address */}
-              <div className="rounded-md border border-border bg-background p-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted">Contract Address</p>
-                <p className="mt-1 font-semibold break-all text-xs">{campaign.contractId}</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(campaign.contractId!);
-                    pushToast({ type: "success", title: "Copied", message: "Contract ID copied to clipboard." });
-                  }}
-                  className="mt-2 rounded-md border border-border px-2 py-1 text-xs font-semibold text-secondary"
-                >
-                  Copy
-                </button>
-              </div>
-
-              {/* Funded amount */}
-              <div className="rounded-md border border-border bg-background p-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted">Funded Amount</p>
-                <p className="mt-1 font-semibold">
-                  {campaign.budget ? `${campaign.budget} ${campaign.budgetToken ?? "XLM"}` : `${campaign.totalBudget.toFixed(2)} XLM`}
-                </p>
-                {contractInfo && (
-                  <p className="mt-1 text-xs text-muted">
-                    Remaining: {contractInfo.balance.toFixed(4)} XLM
-                  </p>
-                )}
-              </div>
-
-              {/* On-chain status */}
-              <div className="rounded-md border border-border bg-background p-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted">On-chain Status</p>
-                <p className="mt-1 font-semibold">{contractInfo ? contractInfo.status : "—"}</p>
-              </div>
-
-              {/* Funding tx */}
-              {campaign.fundingTxHash ? (
-                <div className="rounded-md border border-border bg-background p-3">
-                  <p className="text-xs uppercase tracking-[0.12em] text-muted">Funding Tx</p>
+              <div className="flex-shrink-0 min-w-[240px] p-6 rounded-xl bg-[#0D0F14] border border-[var(--color-border)]">
+                <p className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-1">Contract Address</p>
+                {campaign.contractId ? (
                   <a
-                    href={`https://testnet.stellar.expert/explorer/testnet/tx/${campaign.fundingTxHash}`}
+                    href={`https://stellar.expert/explorer/testnet/search?term=${encodeURIComponent(campaign.contractId)}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-1 block break-all text-xs font-semibold text-secondary underline"
+                    className="text-sm font-medium text-[var(--color-primary)] hover:underline break-all"
                   >
-                    {campaign.fundingTxHash.slice(0, 12)}…{campaign.fundingTxHash.slice(-8)}
+                    {truncateAddress(campaign.contractId)} ↗
                   </a>
+                ) : (
+                  <span className="text-sm text-[var(--color-muted)]">Pending deployment...</span>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-10 pt-8 border-t border-[var(--color-border)]/50">
+              <BudgetBar totalBudget={campaign.totalBudget} remainingBudget={campaign.remainingBudget} />
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-8">
+                <div className="flex flex-col">
+                  <span className="text-sm text-[var(--color-muted)]">Total Budget</span>
+                  <span className="text-xl font-semibold text-white">{campaign.totalBudget.toLocaleString()} XLM</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm text-[var(--color-muted)]">Participants</span>
+                  <span className="text-xl font-semibold text-white">{campaign.stats.postCount}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm text-[var(--color-muted)]">Top Scorer</span>
+                  <span className="text-xl font-semibold text-white truncate">{topScorerText}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm text-[var(--color-muted)]">Estimated Earnings</span>
+                  <span className="text-xl font-semibold text-[var(--color-secondary)]">Dynamic</span>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {isFounderView ? (
+            <section className="grid gap-3 md:grid-cols-3">
+              {flowSteps.map((step) => (
+                <article
+                  key={step.title}
+                  className={`rounded-xl border p-4 ${
+                    step.done
+                      ? "border-[var(--color-success)]/40 bg-[var(--color-success)]/10"
+                      : "border-[var(--color-border)] bg-[var(--color-surface)]/35"
+                  }`}
+                >
+                  <p className="text-sm font-semibold text-white">{step.title}</p>
+                  <p className="mt-1 text-xs text-[var(--color-muted)]">{step.detail}</p>
+                </article>
+              ))}
+            </section>
+          ) : null}
+
+          {isFounderView ? (
+            <section className="rounded-2xl border border-[var(--color-primary)]/30 bg-[#0D0F14] p-6 md:p-8 shadow-lg">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    {campaign.contractId ? "Founder Payout Console" : "Campaign Deployment Console"}
+                  </h2>
+                  <p className="text-sm text-[var(--color-muted)] mt-1">
+                    {campaign.contractId 
+                      ? "Distribute campaign budget on Stellar testnet and monitor transaction flow."
+                      : "Your campaign is currently a draft. Deploy the Soroban contract and fund it to go live."}
+                  </p>
+                  <p className="mt-2 text-xs font-medium text-[var(--color-secondary)]">
+                    Fee buffer reserved: {FOUNDER_FEE_BUFFER_XLM} XLM (not part of distributable campaign budget)
+                  </p>
+                </div>
+                {campaign.status === "ACTIVE" && campaign.contractId ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowPayoutConfirm(true)}
+                    disabled={triggeringPayout || payoutStreaming}
+                    className="rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  >
+                    {triggeringPayout || payoutStreaming ? "Processing..." : "End Campaign & Distribute"}
+                  </button>
+                ) : null}
+              </div>
+              {payoutError ? <p className="mb-6 text-sm text-[var(--color-danger)]">{payoutError}</p> : null}
+
+              {showPayoutConfirm ? (
+                <div className="rounded-xl border border-[var(--color-primary)]/50 bg-[var(--color-surface)] p-6 mb-8">
+                  <p className="text-sm text-white mb-4">
+                    This will end the campaign now (even before the scheduled end date) and distribute <span className="font-bold text-[var(--color-secondary)]">{campaign.remainingBudget.toFixed(2)} XLM</span> to participants with connected wallets.
+                  </p>
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={handleTriggerPayout}
+                      disabled={triggeringPayout}
+                      className="rounded-full bg-[var(--color-primary)] px-6 py-2 text-sm font-semibold text-white hover:bg-opacity-90 transition-all"
+                    >
+                      Confirm End & Distribute
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowPayoutConfirm(false)}
+                      className="rounded-full border border-[var(--color-border)] px-6 py-2 text-sm font-semibold text-white hover:bg-[var(--color-surface)]/80 transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               ) : null}
-            </div>
-          </section>
-        ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-[auto_auto_1fr] sm:items-center">
-          <button
-            type="button"
-            onClick={() => setActiveTab("leaderboard")}
-            className="rounded-md border border-border px-4 py-2 text-sm font-semibold"
-            style={{
-              color: activeTab === "leaderboard" ? "var(--color-secondary)" : "var(--color-muted)",
-              backgroundColor:
-                activeTab === "leaderboard"
-                  ? "color-mix(in srgb, var(--color-secondary) 14%, var(--color-surface))"
-                  : "var(--color-surface)"
-            }}
-          >
-            Leaderboard
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("submit")}
-            className="rounded-md border border-border px-4 py-2 text-sm font-semibold"
-            style={{
-              color: activeTab === "submit" ? "var(--color-secondary)" : "var(--color-muted)",
-              backgroundColor:
-                activeTab === "submit"
-                  ? "color-mix(in srgb, var(--color-secondary) 14%, var(--color-surface))"
-                  : "var(--color-surface)"
-            }}
-          >
-            Submit Post
-          </button>
-        </div>
-
-          {activeTab === "leaderboard" ? (
-            <section className="space-y-4 rounded-lg border border-border bg-surface p-5">
-              <ErrorBoundary fallback={<LeaderboardFallback />} resetKey={`${campaignId}-leaderboard`}>
-                <Leaderboard
-                  campaignId={campaignId}
-                  initialEntries={leaderboard}
-                  onConnectionChange={setIsLiveConnected}
-                  isLoading={loadingLeaderboard}
-                />
-              </ErrorBoundary>
-            </section>
-          ) : (
-            <section className="rounded-lg border border-border bg-surface p-5">
-              <ErrorBoundary fallback={<PostSubmissionFallback />} resetKey={`${campaignId}-submit`}>
-                <form className="space-y-4" onSubmit={handleSubmitPost}>
-              <div className="space-y-2">
-                <label htmlFor="post-url" className="text-sm font-medium text-secondary">
-                  Post URL
-                </label>
-                <input
-                  id="post-url"
-                  type="url"
-                  value={postUrl}
-                  onChange={(event) => setPostUrl(event.target.value)}
-                  required
-                  placeholder="https://"
-                  className="w-full rounded-md border border-border px-3 py-2 text-sm text-secondary outline-none focus:border-primary"
-                  style={{ backgroundColor: "var(--color-background)" }}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="platform" className="text-sm font-medium text-secondary">
-                  Platform
-                </label>
-                <select
-                  id="platform"
-                  value={platform}
-                  onChange={(event) => setPlatform(event.target.value as SocialPlatform)}
-                  className="w-full rounded-md border border-border px-3 py-2 text-sm text-secondary outline-none focus:border-primary"
-                  style={{ backgroundColor: "var(--color-background)" }}
-                >
-                  <option value="TWITTER">Twitter / X</option>
-                  <option value="LINKEDIN">LinkedIn</option>
-                  <option value="INSTAGRAM">Instagram</option>
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                disabled={submissionPhase === "submitting" || submissionPhase === "pending"}
-                className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-secondary"
-                style={{
-                  background: "linear-gradient(120deg, color-mix(in srgb, var(--color-primary) 20%, white), var(--color-surface))"
-                }}
-              >
-                {submissionPhase === "submitting" ? "Submitting..." : "Submit for Review"}
-              </button>
-                </form>
-
-                {submissionPhase === "pending" ? (
-                  <p className="mt-4 inline-flex items-center gap-2 text-sm text-muted">
-                    <span
-                      aria-hidden
-                      className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-muted border-t-primary"
+              {campaign.contractId ? (
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-muted)] mb-4">Live Transaction Feed</h3>
+                  {payoutLoading ? (
+                    <div className="space-y-3">
+                      <Skeleton className="h-16 w-full rounded-xl bg-[var(--color-surface)]" />
+                      <Skeleton className="h-16 w-full rounded-xl bg-[var(--color-surface)]" />
+                    </div>
+                  ) : payouts.length === 0 ? (
+                    <EmptyState
+                      variant="payouts"
+                      title="No payouts yet"
+                      description="Transactions will appear here once distribution begins."
                     />
-                    Verifying your post...
-                  </p>
-                ) : null}
-
-                {submissionPhase === "verified" ? (
-                  <p className="mt-4 text-sm text-success">Post verified! You&apos;re on the leaderboard.</p>
-                ) : null}
-
-                {submissionPhase === "rejected" ? (
-                  <p className="mt-4 text-sm text-danger">Post rejected: {rejectionReason ?? "Verification failed"}</p>
-                ) : null}
-
-                {submissionPhase === "error" && submissionMessage ? (
-                  <p className="mt-4 text-sm text-danger">{submissionMessage}</p>
-                ) : null}
-              </ErrorBoundary>
+                  ) : (
+                    <ul className="space-y-3">
+                      {payouts.map((payout) => (
+                        <li
+                          key={payout.id}
+                          className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 p-4"
+                        >
+                          <div>
+                            <p className="font-semibold text-white">{payout.userName}</p>
+                            <p className="text-sm text-[var(--color-secondary)] font-mono">{payout.amount.toFixed(2)} XLM</p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="rounded-full bg-[var(--color-background)] px-3 py-1 text-xs font-semibold uppercase tracking-wider" style={getPayoutStatusStyle(payout.status)}>
+                              {payout.status}
+                            </span>
+                            {payout.stellarTxUrl ? (
+                              <a
+                                href={payout.stellarTxUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs font-medium text-[var(--color-primary)] hover:underline"
+                              >
+                                View Tx ↗
+                              </a>
+                            ) : (
+                              <span className="text-xs text-[var(--color-muted)]">Pending...</span>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 p-8">
+                  <FundCampaignStep 
+                    campaign={{
+                      id: campaign.id,
+                      title: campaign.title,
+                      budget: campaign.budget ?? "0",
+                      budgetToken: campaign.budgetToken ?? "XLM",
+                      founderWalletAddress: campaign.founderId
+                    }} 
+                    onSuccess={() => {
+                      // Reload campaign data to show active state
+                      window.location.reload();
+                    }}
+                    onSkip={() => {}}
+                  />
+                </div>
+              )}
             </section>
-          )}
+          ) : null}
+
+          <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/30 backdrop-blur p-6">
+            <ErrorBoundary fallback={<LeaderboardFallback />} resetKey={`${campaignId}-leaderboard`}>
+              <Leaderboard
+                campaignId={campaignId}
+                initialEntries={leaderboard}
+                isLoading={loadingLeaderboard}
+              />
+            </ErrorBoundary>
+          </section>
+
+          {canSubmitPost ? (
+            <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/30 backdrop-blur p-6 md:p-8">
+              <div className="grid gap-8 lg:grid-cols-[1fr_1.5fr]">
+                <div>
+                  <h2 className="text-xl font-bold text-white mb-3">Submit your post</h2>
+                  <p className="text-sm text-[var(--color-muted)] mb-4">
+                    Share your live post URL and we will verify it automatically for scoring.
+                  </p>
+                  <div className="space-y-2">
+                    <div className="rounded-lg border border-[var(--color-border)] bg-[#0D0F14] px-3 py-2 text-xs text-[var(--color-muted)]">
+                      1. Publish post with campaign keywords
+                    </div>
+                    <div className="rounded-lg border border-[var(--color-border)] bg-[#0D0F14] px-3 py-2 text-xs text-[var(--color-muted)]">
+                      2. Paste the direct URL below
+                    </div>
+                    <div className="rounded-lg border border-[var(--color-border)] bg-[#0D0F14] px-3 py-2 text-xs text-[var(--color-muted)]">
+                      3. Track verification status instantly
+                    </div>
+                  </div>
+                </div>
+
+                <ErrorBoundary fallback={<PostSubmissionFallback />} resetKey={`${campaignId}-submit`}>
+                  <form className="space-y-5" onSubmit={handleSubmitPost}>
+                    <div>
+                      <label htmlFor="post-url" className="block text-sm font-medium text-[var(--color-muted)] mb-2">Post URL</label>
+                      <input
+                        id="post-url"
+                        type="url"
+                        value={postUrl}
+                        onChange={(event) => setPostUrl(event.target.value)}
+                        required
+                        placeholder="https://x.com/username/status/..."
+                        className="w-full rounded-xl border border-[var(--color-border)] bg-[#0D0F14] px-4 py-3 text-white focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="platform" className="block text-sm font-medium text-[var(--color-muted)] mb-2">Platform</label>
+                      <select
+                        id="platform"
+                        value={platform}
+                        onChange={(event) => setPlatform(event.target.value as SocialPlatform)}
+                        className="w-full rounded-xl border border-[var(--color-border)] bg-[#0D0F14] px-4 py-3 text-white focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] transition-all appearance-none"
+                      >
+                        <option value="TWITTER">X (Twitter)</option>
+                        <option value="LINKEDIN">LinkedIn</option>
+                        <option value="INSTAGRAM">Instagram</option>
+                      </select>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submissionPhase === "submitting" || submissionPhase === "pending"}
+                      className="w-full rounded-full bg-[var(--color-secondary)] px-6 py-4 text-sm font-bold text-white shadow-lg hover:opacity-90 disabled:opacity-50 transition-all"
+                    >
+                      {submissionPhase === "submitting" || submissionPhase === "pending" ? "Verifying..." : "Submit Post"}
+                    </button>
+                  </form>
+                </ErrorBoundary>
+              </div>
+
+              {submissionPhase === "pending" && (
+                <div className="mt-6 flex items-center justify-center gap-3 p-4 rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-sm">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                  Verifying engagement and authenticity...
+                </div>
+              )}
+              
+              {submissionPhase === "verified" && (
+                <div className="mt-6 p-4 rounded-xl bg-[var(--color-success)]/10 text-[var(--color-success)] text-sm font-medium text-center border border-[var(--color-success)]/20">
+                  Post verified successfully! You've been added to the leaderboard.
+                </div>
+              )}
+
+              {submissionPhase === "rejected" && (
+                <div className="mt-6 p-4 rounded-xl bg-[var(--color-danger)]/10 text-[var(--color-danger)] text-sm text-center border border-[var(--color-danger)]/20">
+                  <span className="font-bold block mb-1">Verification Failed</span>
+                  {rejectionReason ?? "Your post didn't meet campaign requirements."}
+                </div>
+              )}
+
+              {submissionPhase === "error" && submissionMessage && (
+                <div className="mt-6 p-4 rounded-xl bg-[var(--color-danger)]/10 text-[var(--color-danger)] text-sm text-center border border-[var(--color-danger)]/20">
+                  {submissionMessage}
+                </div>
+              )}
+            </section>
+          ) : null}
+
+          {!isFounderView && isCampaignEnded ? (
+            <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/20 p-5 text-center">
+              <p className="text-sm text-[var(--color-muted)]">
+                This campaign has ended. Post submissions are now closed.
+              </p>
+            </section>
+          ) : null}
+
         </section>
       </main>
     </ErrorBoundary>
