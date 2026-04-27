@@ -1,0 +1,29 @@
+{
+  "buildCommand": "pnpm --filter @earnify/web build",
+  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_API_URL": {
+      "description": "Backend API base URL"
+    },
+    "NEXT_PUBLIC_STELLAR_NETWORK": {
+      "description": "Stellar network: testnet or public"
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    }
+  ]
+}
