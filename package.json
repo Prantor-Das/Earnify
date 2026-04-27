@@ -6,7 +6,7 @@
   "scripts": {
     "dev:web": "pnpm --filter @earnify/web dev",
     "dev:api": "pnpm --filter @earnify/api dev",
-    "build": "pnpm -r build",
+    "build": "pnpm db:generate && pnpm -r build",
     "lint": "pnpm -r lint",
     "db:generate": "pnpm --filter @earnify/db db:generate",
     "db:migrate": "pnpm --filter @earnify/db db:migrate",
