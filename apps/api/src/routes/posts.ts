@@ -9,7 +9,8 @@ import { runVerificationPipeline } from "../services/verificationEngine.ts";
 import { sendError, sendSuccess } from "../utils/api-response.ts";
 
 const postsRouter = Router();
-const simulatePostChecking = (process.env.SIMULATE_POST_CHECKING ?? "true") !== "false";
+const simulatePostChecking =
+  (process.env.SIMULATE_POST_CHECKING ?? "true") !== "false";
 
 function parseSocialPlatform(value: unknown): SocialPlatform | null {
   if (value === "TWITTER" || value === "LINKEDIN" || value === "INSTAGRAM") {
@@ -32,7 +33,9 @@ function randomInRange(min: number, max: number) {
 }
 
 async function runSimulatedPostCheck(postId: string) {
-  await new Promise((resolve) => setTimeout(resolve, randomInRange(1200, 3200)));
+  await new Promise((resolve) =>
+    setTimeout(resolve, randomInRange(1200, 3200)),
+  );
 
   const post = await prisma.post.findUnique({
     where: { id: postId },
@@ -42,10 +45,10 @@ async function runSimulatedPostCheck(postId: string) {
       platform: true,
       campaign: {
         select: {
-          status: true
-        }
-      }
-    }
+          status: true,
+        },
+      },
+    },
   });
 
   if (!post || post.status !== PostStatus.PENDING) {
@@ -58,16 +61,39 @@ async function runSimulatedPostCheck(postId: string) {
       data: {
         status: PostStatus.REJECTED,
         rejectionReason: "Campaign is not active",
-        authenticityScore: null
-      }
+        authenticityScore: null,
+      },
     });
     return;
   }
 
-  const platformRanges: Record<SocialPlatform, { views: [number, number]; likes: [number, number]; comments: [number, number]; shares: [number, number] }> = {
-    TWITTER: { views: [200, 4200], likes: [10, 230], comments: [2, 48], shares: [1, 38] },
-    LINKEDIN: { views: [150, 2600], likes: [8, 180], comments: [1, 36], shares: [1, 28] },
-    INSTAGRAM: { views: [280, 5200], likes: [18, 360], comments: [3, 60], shares: [1, 26] }
+  const platformRanges: Record<
+    SocialPlatform,
+    {
+      views: [number, number];
+      likes: [number, number];
+      comments: [number, number];
+      shares: [number, number];
+    }
+  > = {
+    TWITTER: {
+      views: [200, 4200],
+      likes: [10, 230],
+      comments: [2, 48],
+      shares: [1, 38],
+    },
+    LINKEDIN: {
+      views: [150, 2600],
+      likes: [8, 180],
+      comments: [1, 36],
+      shares: [1, 28],
+    },
+    INSTAGRAM: {
+      views: [280, 5200],
+      likes: [18, 360],
+      comments: [3, 60],
+      shares: [1, 26],
+    },
   };
 
   const range = platformRanges[post.platform];
@@ -78,8 +104,8 @@ async function runSimulatedPostCheck(postId: string) {
     data: {
       status: PostStatus.VERIFIED,
       authenticityScore,
-      rejectionReason: null
-    }
+      rejectionReason: null,
+    },
   });
 
   await prisma.postEngagement.create({
@@ -88,8 +114,8 @@ async function runSimulatedPostCheck(postId: string) {
       views: randomInRange(range.views[0], range.views[1]),
       likes: randomInRange(range.likes[0], range.likes[1]),
       comments: randomInRange(range.comments[0], range.comments[1]),
-      shares: randomInRange(range.shares[0], range.shares[1])
-    }
+      shares: randomInRange(range.shares[0], range.shares[1]),
+    },
   });
 
   await calculateScore(post.id);
@@ -114,19 +140,23 @@ postsRouter.post("/", requireAuth, async (request, response) => {
 
   const parsedPlatform = parseSocialPlatform(platform);
   if (!parsedPlatform) {
-    sendError(response, "platform must be TWITTER, LINKEDIN, or INSTAGRAM", 400);
+    sendError(
+      response,
+      "platform must be TWITTER, LINKEDIN, or INSTAGRAM",
+      400,
+    );
     return;
   }
 
   const campaign = await prisma.campaign.findUnique({
     where: {
-      id: campaignId
+      id: campaignId,
     },
     select: {
       id: true,
       status: true,
-      founderId: true
-    }
+      founderId: true,
+    },
   });
 
   if (!campaign) {
@@ -140,7 +170,11 @@ postsRouter.post("/", requireAuth, async (request, response) => {
   }
 
   if (campaign.founderId === request.user.id) {
-    sendError(response, "Founders cannot participate in their own campaigns", 403);
+    sendError(
+      response,
+      "Founders cannot participate in their own campaigns",
+      403,
+    );
     return;
   }
 
@@ -150,21 +184,23 @@ postsRouter.post("/", requireAuth, async (request, response) => {
       userId: request.user.id,
       postUrl,
       platform: parsedPlatform,
-      status: PostStatus.PENDING
+      status: PostStatus.PENDING,
     },
     select: {
       id: true,
       status: true,
-      createdAt: true
-    }
+      createdAt: true,
+    },
   });
 
-  const checkTask = simulatePostChecking ? runSimulatedPostCheck(post.id) : runVerificationPipeline(post.id);
+  const checkTask = simulatePostChecking
+    ? runSimulatedPostCheck(post.id)
+    : runVerificationPipeline(post.id);
 
   void checkTask.catch((error: unknown) => {
     console.error("Post verification pipeline failed", {
       postId: post.id,
-      error
+      error,
     });
   });
 
@@ -173,9 +209,9 @@ postsRouter.post("/", requireAuth, async (request, response) => {
     {
       postId: post.id,
       status: post.status,
-      createdAt: post.createdAt.toISOString()
+      createdAt: post.createdAt.toISOString(),
     },
-    202
+    202,
   );
 });
 
@@ -194,7 +230,7 @@ postsRouter.get("/:id/status", requireAuth, async (request, response) => {
 
   const post = await prisma.post.findUnique({
     where: {
-      id: postId
+      id: postId,
     },
     select: {
       id: true,
@@ -202,8 +238,8 @@ postsRouter.get("/:id/status", requireAuth, async (request, response) => {
       status: true,
       rejectionReason: true,
       authenticityScore: true,
-      createdAt: true
-    }
+      createdAt: true,
+    },
   });
 
   if (!post) {
@@ -221,7 +257,7 @@ postsRouter.get("/:id/status", requireAuth, async (request, response) => {
     status: post.status,
     rejectionReason: post.rejectionReason,
     authenticityScore: post.authenticityScore,
-    createdAt: post.createdAt.toISOString()
+    createdAt: post.createdAt.toISOString(),
   });
 });
 

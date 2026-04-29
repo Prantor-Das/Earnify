@@ -1,5 +1,10 @@
 export type UserRole = "FOUNDER" | "USER";
-export type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ENDED";
+export type CampaignStatus =
+  | "DRAFT"
+  | "ACTIVE"
+  | "PAUSED"
+  | "COMPLETED"
+  | "ENDED";
 export type SocialPlatform = "TWITTER" | "LINKEDIN" | "INSTAGRAM";
 export type PostStatus = "PENDING" | "VERIFIED" | "REJECTED";
 export type PayoutStatus = "PENDING" | "COMPLETED" | "FAILED";

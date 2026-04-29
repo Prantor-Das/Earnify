@@ -8,11 +8,13 @@ const { CampaignStatus, PostStatus, PrismaClient, SocialPlatform, UserRole } =
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required. Set it to your Neon Postgres connection string.");
+  throw new Error(
+    "DATABASE_URL is required. Set it to your Neon Postgres connection string.",
+  );
 }
 
 const pool = new Pool({
-  connectionString: databaseUrl
+  connectionString: databaseUrl,
 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
@@ -72,8 +74,8 @@ async function main() {
         name: "Alice Chen",
         avatar: "https://lh3.googleusercontent.com/a/default-user=s96-c",
         role: UserRole.FOUNDER,
-        walletAddress: makeSeedWallet("A")
-      }
+        walletAddress: makeSeedWallet("A"),
+      },
     }),
     prisma.user.create({
       data: {
@@ -81,8 +83,8 @@ async function main() {
         name: "Bob Singh",
         avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e",
         role: UserRole.USER,
-        walletAddress: makeSeedWallet("B")
-      }
+        walletAddress: makeSeedWallet("B"),
+      },
     }),
     prisma.user.create({
       data: {
@@ -90,8 +92,8 @@ async function main() {
         name: "Priya Kumar",
         avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80",
         role: UserRole.USER,
-        walletAddress: makeSeedWallet("C")
-      }
+        walletAddress: makeSeedWallet("C"),
+      },
     }),
     prisma.user.create({
       data: {
@@ -99,9 +101,9 @@ async function main() {
         name: "Jae-won Oh",
         avatar: "https://images.unsplash.com/photo-1542204625-de293a5c4a31",
         role: UserRole.USER,
-        walletAddress: makeSeedWallet("D")
-      }
-    })
+        walletAddress: makeSeedWallet("D"),
+      },
+    }),
   ]);
 
   const now = new Date();
@@ -118,8 +120,8 @@ async function main() {
         status: CampaignStatus.ACTIVE,
         founderId: founder.id,
         stellarWalletPublicKey: makeSeedWallet("L"),
-        endsAt: addDays(now, 7)
-      }
+        endsAt: addDays(now, 7),
+      },
     }),
     prisma.campaign.create({
       data: {
@@ -132,9 +134,9 @@ async function main() {
         status: CampaignStatus.ACTIVE,
         founderId: founder.id,
         stellarWalletPublicKey: makeSeedWallet("G"),
-        endsAt: addDays(now, 14)
-      }
-    })
+        endsAt: addDays(now, 14),
+      },
+    }),
   ]);
 
   const postInputs: SeededPostInput[] = [
@@ -144,15 +146,16 @@ async function main() {
       postUrl: "https://x.com/bobsingh/status/193812340001",
       platform: SocialPlatform.TWITTER,
       authenticityScore: 0.96,
-      engagement: { views: 9400, likes: 460, shares: 145, comments: 72 }
+      engagement: { views: 9400, likes: 460, shares: 145, comments: 72 },
     },
     {
       campaignId: devflowCampaign.id,
       userId: priya.id,
-      postUrl: "https://www.linkedin.com/posts/priyakumar_devflow-code-review-productivity-activity-733301",
+      postUrl:
+        "https://www.linkedin.com/posts/priyakumar_devflow-code-review-productivity-activity-733301",
       platform: SocialPlatform.LINKEDIN,
       authenticityScore: 0.93,
-      engagement: { views: 7200, likes: 390, shares: 108, comments: 64 }
+      engagement: { views: 7200, likes: 390, shares: 108, comments: 64 },
     },
     {
       campaignId: devflowCampaign.id,
@@ -160,15 +163,16 @@ async function main() {
       postUrl: "https://www.instagram.com/p/DEVFLOWDEMO/",
       platform: SocialPlatform.INSTAGRAM,
       authenticityScore: 0.88,
-      engagement: { views: 6100, likes: 310, shares: 82, comments: 41 }
+      engagement: { views: 6100, likes: 310, shares: 82, comments: 41 },
     },
     {
       campaignId: greenbiteCampaign.id,
       userId: bob.id,
-      postUrl: "https://www.linkedin.com/posts/bobsingh_greenbite-healthysnacking-wellness-activity-812293",
+      postUrl:
+        "https://www.linkedin.com/posts/bobsingh_greenbite-healthysnacking-wellness-activity-812293",
       platform: SocialPlatform.LINKEDIN,
       authenticityScore: 0.9,
-      engagement: { views: 5300, likes: 245, shares: 75, comments: 36 }
+      engagement: { views: 5300, likes: 245, shares: 75, comments: 36 },
     },
     {
       campaignId: greenbiteCampaign.id,
@@ -176,7 +180,7 @@ async function main() {
       postUrl: "https://x.com/priyakumar/status/193812340002",
       platform: SocialPlatform.TWITTER,
       authenticityScore: 0.95,
-      engagement: { views: 8600, likes: 410, shares: 121, comments: 55 }
+      engagement: { views: 8600, likes: 410, shares: 121, comments: 55 },
     },
     {
       campaignId: greenbiteCampaign.id,
@@ -184,8 +188,8 @@ async function main() {
       postUrl: "https://www.instagram.com/p/GREENBITEBOOST/",
       platform: SocialPlatform.INSTAGRAM,
       authenticityScore: 0.84,
-      engagement: { views: 4800, likes: 198, shares: 59, comments: 28 }
-    }
+      engagement: { views: 4800, likes: 198, shares: 59, comments: 28 },
+    },
   ];
 
   const seededPosts = await Promise.all(
@@ -197,13 +201,13 @@ async function main() {
           postUrl: input.postUrl,
           platform: input.platform,
           status: PostStatus.VERIFIED,
-          authenticityScore: input.authenticityScore
+          authenticityScore: input.authenticityScore,
         },
         select: {
-          id: true
-        }
-      })
-    )
+          id: true,
+        },
+      }),
+    ),
   );
 
   await prisma.postEngagement.createMany({
@@ -213,8 +217,8 @@ async function main() {
       likes: postInputs[index]?.engagement.likes ?? 0,
       shares: postInputs[index]?.engagement.shares ?? 0,
       comments: postInputs[index]?.engagement.comments ?? 0,
-      fetchedAt: new Date()
-    }))
+      fetchedAt: new Date(),
+    })),
   });
 
   await Promise.all(
@@ -224,8 +228,8 @@ async function main() {
           postId_userId_campaignId: {
             postId: post.id,
             userId: postInputs[index]!.userId,
-            campaignId: postInputs[index]!.campaignId
-          }
+            campaignId: postInputs[index]!.campaignId,
+          },
         },
         update: {
           totalScore: computePostScore({
@@ -233,8 +237,8 @@ async function main() {
             likes: postInputs[index]!.engagement.likes,
             shares: postInputs[index]!.engagement.shares,
             comments: postInputs[index]!.engagement.comments,
-            authenticityScore: postInputs[index]!.authenticityScore
-          })
+            authenticityScore: postInputs[index]!.authenticityScore,
+          }),
         },
         create: {
           postId: post.id,
@@ -245,19 +249,21 @@ async function main() {
             likes: postInputs[index]!.engagement.likes,
             shares: postInputs[index]!.engagement.shares,
             comments: postInputs[index]!.engagement.comments,
-            authenticityScore: postInputs[index]!.authenticityScore
-          })
-        }
-      })
-    )
+            authenticityScore: postInputs[index]!.authenticityScore,
+          }),
+        },
+      }),
+    ),
   );
 
-  console.log("Seeded 4 users, 2 active campaigns, 6 verified posts, engagements, and scores");
+  console.log(
+    "Seeded 4 users, 2 active campaigns, 6 verified posts, engagements, and scores",
+  );
   console.log({
     founder: founder.email,
     creators: [bob.email, priya.email, jaewon.email],
     campaignIds: [devflowCampaign.id, greenbiteCampaign.id],
-    postIds: seededPosts.map((post) => post.id)
+    postIds: seededPosts.map((post) => post.id),
   });
 }
 

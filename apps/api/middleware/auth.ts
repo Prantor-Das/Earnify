@@ -25,7 +25,7 @@ function unauthorized(response: Response) {
   const payload: ApiResponse<never> = {
     success: false,
     error: "Unauthorized",
-    code: "UNAUTHORIZED"
+    code: "UNAUTHORIZED",
   };
 
   return response.status(401).json(payload);
@@ -35,7 +35,7 @@ function forbidden(response: Response) {
   const payload: ApiResponse<never> = {
     success: false,
     error: "Forbidden",
-    code: "FORBIDDEN"
+    code: "FORBIDDEN",
   };
 
   return response.status(403).json(payload);
@@ -77,7 +77,7 @@ function decodeToken(token: string) {
       role: decoded.role,
       name: decoded.name,
       avatar: decoded.avatar ?? null,
-      walletAddress: decoded.walletAddress ?? null
+      walletAddress: decoded.walletAddress ?? null,
     };
 
     return user;
@@ -86,7 +86,11 @@ function decodeToken(token: string) {
   }
 }
 
-const requireAuth: RequestHandler = (request: Request, response: Response, next: NextFunction) => {
+const requireAuth: RequestHandler = (
+  request: Request,
+  response: Response,
+  next: NextFunction,
+) => {
   const token = extractToken(request);
 
   if (!token) {
@@ -104,7 +108,11 @@ const requireAuth: RequestHandler = (request: Request, response: Response, next:
   next();
 };
 
-const optionalAuth: RequestHandler = (request: Request, _response: Response, next: NextFunction) => {
+const optionalAuth: RequestHandler = (
+  request: Request,
+  _response: Response,
+  next: NextFunction,
+) => {
   const token = extractToken(request);
   if (!token) {
     next();

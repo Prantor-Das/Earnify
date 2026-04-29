@@ -13,31 +13,37 @@ function initWebsocket(server: HttpServer, webOrigins: string[]) {
   io = new Server(server, {
     cors: {
       origin: webOrigins,
-      credentials: true
-    }
+      credentials: true,
+    },
   });
 
   io.on("connection", (socket) => {
-    socket.on("join-campaign", (payload: { campaignId?: string } | undefined) => {
-      if (!payload?.campaignId || typeof payload.campaignId !== "string") {
-        return;
-      }
+    socket.on(
+      "join-campaign",
+      (payload: { campaignId?: string } | undefined) => {
+        if (!payload?.campaignId || typeof payload.campaignId !== "string") {
+          return;
+        }
 
-      socket.join(getCampaignRoomKey(payload.campaignId));
-    });
+        socket.join(getCampaignRoomKey(payload.campaignId));
+      },
+    );
   });
 
   return io;
 }
 
-function emitLeaderboardUpdate(campaignId: string, leaderboard: LeaderboardEntry[]) {
+function emitLeaderboardUpdate(
+  campaignId: string,
+  leaderboard: LeaderboardEntry[],
+) {
   if (!io) {
     return;
   }
 
   io.to(getCampaignRoomKey(campaignId)).emit("leaderboard-update", {
     campaignId,
-    leaderboard
+    leaderboard,
   });
 }
 
@@ -49,7 +55,7 @@ function emitPayoutUpdate(
     amount: number;
     status: "PENDING" | "COMPLETED" | "FAILED";
     stellarTxHash?: string | null;
-  }
+  },
 ) {
   if (!io) {
     return;
@@ -57,7 +63,7 @@ function emitPayoutUpdate(
 
   io.to(getCampaignRoomKey(campaignId)).emit("payout-update", {
     campaignId,
-    payout
+    payout,
   });
 }
 

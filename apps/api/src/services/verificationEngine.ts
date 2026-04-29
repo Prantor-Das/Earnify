@@ -1,5 +1,10 @@
 import axios from "axios";
-import { CampaignStatus, PostStatus, SocialPlatform, prisma } from "@earnify/db";
+import {
+  CampaignStatus,
+  PostStatus,
+  SocialPlatform,
+  prisma,
+} from "@earnify/db";
 import { load } from "cheerio";
 
 import { runAiDetection } from "./aiDetection.ts";
@@ -17,7 +22,7 @@ type ExtractedContent = {
 const PLATFORM_DOMAINS: Record<SocialPlatform, string[]> = {
   TWITTER: ["twitter.com", "x.com"],
   LINKEDIN: ["linkedin.com"],
-  INSTAGRAM: ["instagram.com"]
+  INSTAGRAM: ["instagram.com"],
 };
 
 function normalizePostUrl(input: string) {
@@ -29,42 +34,44 @@ function normalizePostUrl(input: string) {
 
 function hostnameMatchesPlatform(hostname: string, platform: SocialPlatform) {
   const allowedDomains = PLATFORM_DOMAINS[platform];
-  return allowedDomains.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
+  return allowedDomains.some(
+    (domain) => hostname === domain || hostname.endsWith(`.${domain}`),
+  );
 }
 
 async function rejectPost(postId: string, reason: string) {
   await prisma.post.update({
     where: {
-      id: postId
+      id: postId,
     },
     data: {
       status: PostStatus.REJECTED,
       rejectionReason: reason,
-      authenticityScore: null
-    }
+      authenticityScore: null,
+    },
   });
 }
 
 function extractContentFromHtml(html: string): ExtractedContent {
   const $ = load(html);
   const ogTitle = $("meta[property='og:title']").attr("content")?.trim() ?? "";
-  const ogDescription = $("meta[property='og:description']").attr("content")?.trim() ?? "";
+  const ogDescription =
+    $("meta[property='og:description']").attr("content")?.trim() ?? "";
   const pageTitle = $("title").first().text().trim();
   const visibleText =
-    $("body")
-      .text()
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 6000) ?? "";
+    $("body").text().replace(/\s+/g, " ").trim().slice(0, 6000) ?? "";
 
-  const combinedText = [ogTitle, ogDescription, pageTitle, visibleText].filter(Boolean).join(" ").trim();
+  const combinedText = [ogTitle, ogDescription, pageTitle, visibleText]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
 
   return {
     ogTitle,
     ogDescription,
     pageTitle,
     visibleText,
-    combinedText
+    combinedText,
   };
 }
 
@@ -95,11 +102,11 @@ function countKeywordMatches(content: string, keywords: string[]) {
 async function runVerificationPipeline(postId: string): Promise<void> {
   const post = await prisma.post.findUnique({
     where: {
-      id: postId
+      id: postId,
     },
     include: {
-      campaign: true
-    }
+      campaign: true,
+    },
   });
 
   if (!post) {
@@ -127,7 +134,9 @@ async function runVerificationPipeline(postId: string): Promise<void> {
     return;
   }
 
-  if (!hostnameMatchesPlatform(parsedUrl.hostname.toLowerCase(), post.platform)) {
+  if (
+    !hostnameMatchesPlatform(parsedUrl.hostname.toLowerCase(), post.platform)
+  ) {
     await rejectPost(post.id, "URL domain does not match selected platform");
     return;
   }
@@ -137,12 +146,12 @@ async function runVerificationPipeline(postId: string): Promise<void> {
       campaignId: post.campaignId,
       postUrl: normalizedUrl,
       id: {
-        not: post.id
-      }
+        not: post.id,
+      },
     },
     select: {
-      id: true
-    }
+      id: true,
+    },
   });
 
   if (duplicatePost) {
@@ -153,11 +162,11 @@ async function runVerificationPipeline(postId: string): Promise<void> {
   if (post.postUrl !== normalizedUrl) {
     await prisma.post.update({
       where: {
-        id: post.id
+        id: post.id,
       },
       data: {
-        postUrl: normalizedUrl
-      }
+        postUrl: normalizedUrl,
+      },
     });
   }
 
@@ -168,10 +177,13 @@ async function runVerificationPipeline(postId: string): Promise<void> {
     const fetchResponse = await axios.get(normalizedUrl, {
       timeout: 10000,
       validateStatus: () => true,
-      responseType: "text"
+      responseType: "text",
     });
 
-    if (fetchResponse.status !== 200 || typeof fetchResponse.data !== "string") {
+    if (
+      fetchResponse.status !== 200 ||
+      typeof fetchResponse.data !== "string"
+    ) {
       await rejectPost(post.id, "Post not accessible");
       return;
     }
@@ -188,8 +200,14 @@ async function runVerificationPipeline(postId: string): Promise<void> {
   }
 
   // Step 3: Content relevance check with soft penalty when no keyword matches.
-  const keywords = getCampaignKeywords(post.campaign.title, post.campaign.productUrl ?? "");
-  const keywordMatches = countKeywordMatches(extractedContent.combinedText, keywords);
+  const keywords = getCampaignKeywords(
+    post.campaign.title,
+    post.campaign.productUrl ?? "",
+  );
+  const keywordMatches = countKeywordMatches(
+    extractedContent.combinedText,
+    keywords,
+  );
   const relevancePenalty = keywordMatches === 0 ? 0.15 : 0;
 
   // Step 4: AI authenticity detection.
@@ -202,21 +220,27 @@ async function runVerificationPipeline(postId: string): Promise<void> {
   }
 
   if (aiResult.isSpam || aiResult.authenticityScore < 0.4) {
-    await rejectPost(post.id, aiResult.reason || "Likely spam or AI-generated content");
+    await rejectPost(
+      post.id,
+      aiResult.reason || "Likely spam or AI-generated content",
+    );
     return;
   }
 
-  const penalizedAuthenticityScore = Math.max(0, aiResult.authenticityScore - relevancePenalty);
+  const penalizedAuthenticityScore = Math.max(
+    0,
+    aiResult.authenticityScore - relevancePenalty,
+  );
 
   await prisma.post.update({
     where: {
-      id: post.id
+      id: post.id,
     },
     data: {
       status: PostStatus.VERIFIED,
       authenticityScore: penalizedAuthenticityScore,
-      rejectionReason: null
-    }
+      rejectionReason: null,
+    },
   });
 
   // Step 5: Attempt engagement fetch before score calculation so first score
@@ -226,11 +250,14 @@ async function runVerificationPipeline(postId: string): Promise<void> {
   } catch (error) {
     // Engagement providers can fail due missing API credentials/rate limits.
     // Keep post verified and let scoring fallback + cron refresh handle it.
-    console.warn("Engagement fetch failed during verification; continuing with current snapshot", {
-      postId: post.id,
-      platform: post.platform,
-      error
-    });
+    console.warn(
+      "Engagement fetch failed during verification; continuing with current snapshot",
+      {
+        postId: post.id,
+        platform: post.platform,
+        error,
+      },
+    );
   }
 
   try {
@@ -238,7 +265,7 @@ async function runVerificationPipeline(postId: string): Promise<void> {
   } catch (error) {
     console.error("Score calculation failed", {
       postId: post.id,
-      error
+      error,
     });
   }
 }

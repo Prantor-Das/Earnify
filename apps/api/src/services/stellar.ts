@@ -1,4 +1,9 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from "node:crypto";
 
 import * as StellarSdk from "@stellar/stellar-sdk";
 
@@ -15,19 +20,24 @@ async function createCampaignWallet(): Promise<CampaignWallet> {
   const keypair = StellarSdk.Keypair.random();
   return {
     publicKey: keypair.publicKey(),
-    secretKey: keypair.secret()
+    secretKey: keypair.secret(),
   };
 }
 
 async function getWalletBalance(publicKey: string): Promise<number> {
   try {
     const account = await horizon.loadAccount(publicKey);
-    const nativeBalance = account.balances.find((balance) => balance.asset_type === "native");
+    const nativeBalance = account.balances.find(
+      (balance) => balance.asset_type === "native",
+    );
 
     return Number(nativeBalance?.balance ?? 0);
   } catch (error) {
     // If the wallet hasn't been created/funded yet, treat as zero balance.
-    if (error instanceof Error && error.message.toLowerCase().includes("not found")) {
+    if (
+      error instanceof Error &&
+      error.message.toLowerCase().includes("not found")
+    ) {
       return 0;
     }
 
@@ -45,7 +55,10 @@ function encryptSecretKey(secretKey: string): string {
   const key = createHash("sha256").update(encryptionKey).digest();
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
-  const encrypted = Buffer.concat([cipher.update(secretKey, "utf8"), cipher.final()]);
+  const encrypted = Buffer.concat([
+    cipher.update(secretKey, "utf8"),
+    cipher.final(),
+  ]);
   const authTag = cipher.getAuthTag();
 
   return `${iv.toString("base64")}:${encrypted.toString("base64")}:${authTag.toString("base64")}`;
@@ -71,9 +84,17 @@ function decryptSecretKey(payload: string): string {
 
   const decipher = createDecipheriv("aes-256-gcm", key, iv);
   decipher.setAuthTag(authTag);
-  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  const decrypted = Buffer.concat([
+    decipher.update(encrypted),
+    decipher.final(),
+  ]);
 
   return decrypted.toString("utf8");
 }
 
-export { createCampaignWallet, decryptSecretKey, encryptSecretKey, getWalletBalance };
+export {
+  createCampaignWallet,
+  decryptSecretKey,
+  encryptSecretKey,
+  getWalletBalance,
+};

@@ -65,7 +65,9 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-3">
             {campaign.status ? <StatusBadge status={campaign.status} /> : null}
-            <h3 className="text-xl font-semibold text-[#fafafa] leading-tight line-clamp-2">{campaign.title}</h3>
+            <h3 className="text-xl font-semibold text-[#fafafa] leading-tight line-clamp-2">
+              {campaign.title}
+            </h3>
           </div>
 
           <div className="flex gap-1.5">
@@ -81,22 +83,37 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
           </div>
         </div>
 
-        {campaign.description ? <p className="line-clamp-2 text-sm text-zinc-400">{campaign.description}</p> : null}
+        {campaign.description ? (
+          <p className="line-clamp-2 text-sm text-zinc-400">
+            {campaign.description}
+          </p>
+        ) : null}
 
         <div className="flex items-center justify-between border-y border-[var(--color-border)] py-3">
           <p className="text-sm text-zinc-300">
-            By <span className="font-semibold text-zinc-100">{founderName}</span>
+            By{" "}
+            <span className="font-semibold text-zinc-100">{founderName}</span>
           </p>
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">{getTimeLabel(campaign.endDate)}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+            {getTimeLabel(campaign.endDate)}
+          </p>
         </div>
 
-        <BudgetBar totalBudget={campaign.budgetTotal} remainingBudget={campaign.budgetRemaining} size="sm" />
+        <BudgetBar
+          totalBudget={campaign.budgetTotal}
+          remainingBudget={campaign.budgetRemaining}
+          size="sm"
+        />
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-4 border-t border-[var(--color-border)] pt-4">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.08em] text-zinc-500">Participants</p>
-          <p className="text-sm font-semibold text-zinc-100">{campaign.participants}</p>
+          <p className="text-[11px] uppercase tracking-[0.08em] text-zinc-500">
+            Participants
+          </p>
+          <p className="text-sm font-semibold text-zinc-100">
+            {campaign.participants}
+          </p>
         </div>
 
         <Link

@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
-import type { ApiResponse, CampaignStatus, LeaderboardEntry, PostStatus, SocialPlatform } from "@earnify/shared";
+import type {
+  ApiResponse,
+  CampaignStatus,
+  LeaderboardEntry,
+  PostStatus,
+  SocialPlatform,
+} from "@earnify/shared";
 import { useParams } from "next/navigation";
 import { FundCampaignStep } from "../../../components/campaign/FundCampaignStep";
 import { BudgetBar } from "../../../components/BudgetBar";
@@ -17,10 +23,14 @@ import { withAuth } from "../../../components/auth/withAuth";
 import { useToast } from "../../../components/toast/ToastProvider";
 import { useWallet } from "../../../components/wallet/WalletProvider";
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
-const HORIZON_URL = process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ?? "https://horizon-testnet.stellar.org";
+const apiBaseUrl =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+const HORIZON_URL =
+  process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ??
+  "https://horizon-testnet.stellar.org";
 const NETWORK_PASSPHRASE =
-  process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE ?? "Test SDF Network ; September 2015";
+  process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE ??
+  "Test SDF Network ; September 2015";
 const FOUNDER_FEE_BUFFER_XLM = 10;
 
 type CampaignDetails = {
@@ -58,7 +68,13 @@ type PostStatusResponse = {
   rejectionReason?: string | null;
 };
 
-type SubmissionPhase = "idle" | "submitting" | "pending" | "verified" | "rejected" | "error";
+type SubmissionPhase =
+  | "idle"
+  | "submitting"
+  | "pending"
+  | "verified"
+  | "rejected"
+  | "error";
 
 type PayoutStatus = "PENDING" | "COMPLETED" | "FAILED";
 
@@ -84,15 +100,21 @@ type ContractInfo = {
 
 type FreighterSignFn = (
   xdr: string,
-  opts: { networkPassphrase: string }
+  opts: { networkPassphrase: string },
 ) => Promise<{ signedTxXdr: string; error?: string }>;
 
 async function getFreighterSign(): Promise<FreighterSignFn | null> {
   try {
     const mod = await import("@stellar/freighter-api");
-    const api = (mod as unknown as { freighterApi?: { signTransaction: FreighterSignFn } }).freighterApi
-      ?? (mod as unknown as { signTransaction: FreighterSignFn });
-    if (typeof api?.signTransaction === "function") return api.signTransaction.bind(api);
+    const api =
+      (
+        mod as unknown as {
+          freighterApi?: { signTransaction: FreighterSignFn };
+        }
+      ).freighterApi ??
+      (mod as unknown as { signTransaction: FreighterSignFn });
+    if (typeof api?.signTransaction === "function")
+      return api.signTransaction.bind(api);
     return null;
   } catch {
     return null;
@@ -107,32 +129,46 @@ function getPayoutStatusStyle(status: PayoutStatus) {
   if (status === "COMPLETED") {
     return {
       color: "var(--color-success)",
-      background: "color-mix(in srgb, var(--color-success) 16%, var(--color-surface))",
-      borderColor: "color-mix(in srgb, var(--color-success) 42%, var(--color-border))"
+      background:
+        "color-mix(in srgb, var(--color-success) 16%, var(--color-surface))",
+      borderColor:
+        "color-mix(in srgb, var(--color-success) 42%, var(--color-border))",
     };
   }
 
   if (status === "FAILED") {
     return {
       color: "var(--color-danger)",
-      background: "color-mix(in srgb, var(--color-danger) 14%, var(--color-surface))",
-      borderColor: "color-mix(in srgb, var(--color-danger) 38%, var(--color-border))"
+      background:
+        "color-mix(in srgb, var(--color-danger) 14%, var(--color-surface))",
+      borderColor:
+        "color-mix(in srgb, var(--color-danger) 38%, var(--color-border))",
     };
   }
 
   return {
     color: "var(--color-accent)",
-    background: "color-mix(in srgb, var(--color-accent) 18%, var(--color-surface))",
-    borderColor: "color-mix(in srgb, var(--color-accent) 42%, var(--color-border))"
+    background:
+      "color-mix(in srgb, var(--color-accent) 18%, var(--color-surface))",
+    borderColor:
+      "color-mix(in srgb, var(--color-accent) 42%, var(--color-border))",
   };
 }
 
-function CampaignNotFoundFallback({ message = "Campaign not found" }: { message?: string }) {
+function CampaignNotFoundFallback({
+  message = "Campaign not found",
+}: {
+  message?: string;
+}) {
   return (
     <main className="min-h-screen px-4 py-8 sm:px-6 md:py-12 lg:px-10">
       <section className="mx-auto w-full max-w-3xl rounded-3xl border border-[var(--color-border)]/50 bg-[#0D0F14]/50 backdrop-blur-xl p-12 text-center shadow-2xl">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-primary)]">404</p>
-        <h1 className="mt-4 text-3xl font-bold text-white">Campaign unavailable</h1>
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--color-primary)]">
+          404
+        </p>
+        <h1 className="mt-4 text-3xl font-bold text-white">
+          Campaign unavailable
+        </h1>
         <p className="mt-3 text-base text-[var(--color-muted)]">{message}</p>
       </section>
     </main>
@@ -141,12 +177,18 @@ function CampaignNotFoundFallback({ message = "Campaign not found" }: { message?
 
 function LeaderboardFallback() {
   return (
-    <div className="rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-5 text-sm text-[var(--color-danger)] font-medium">Leaderboard temporarily unavailable</div>
+    <div className="rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-5 text-sm text-[var(--color-danger)] font-medium">
+      Leaderboard temporarily unavailable
+    </div>
   );
 }
 
 function PostSubmissionFallback() {
-  return <div className="rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-5 text-sm text-[var(--color-danger)] font-medium">Try again</div>;
+  return (
+    <div className="rounded-xl border border-[var(--color-danger)]/30 bg-[var(--color-danger)]/10 p-5 text-sm text-[var(--color-danger)] font-medium">
+      Try again
+    </div>
+  );
 }
 
 function CampaignDetailsPage() {
@@ -166,9 +208,12 @@ function CampaignDetailsPage() {
 
   const [postUrl, setPostUrl] = useState("");
   const [platform, setPlatform] = useState<SocialPlatform>("TWITTER");
-  const [submissionPhase, setSubmissionPhase] = useState<SubmissionPhase>("idle");
+  const [submissionPhase, setSubmissionPhase] =
+    useState<SubmissionPhase>("idle");
   const [submittedPostId, setSubmittedPostId] = useState<string | null>(null);
-  const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
+  const [submissionMessage, setSubmissionMessage] = useState<string | null>(
+    null,
+  );
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
 
   const [payouts, setPayouts] = useState<CampaignPayoutEntry[]>([]);
@@ -194,28 +239,42 @@ function CampaignDetailsPage() {
         const [campaignResponse, leaderboardResponse] = await Promise.all([
           fetch(`${apiBaseUrl}/api/campaigns/${campaignId}`, {
             method: "GET",
-            credentials: "include"
+            credentials: "include",
           }),
           fetch(`${apiBaseUrl}/api/campaigns/${campaignId}/leaderboard`, {
             method: "GET",
-            credentials: "include"
-          })
+            credentials: "include",
+          }),
         ]);
 
-        const campaignPayload = (await campaignResponse.json()) as ApiResponse<CampaignDetails>;
-        const leaderboardPayload = (await leaderboardResponse.json()) as ApiResponse<LeaderboardEntry[]>;
+        const campaignPayload =
+          (await campaignResponse.json()) as ApiResponse<CampaignDetails>;
+        const leaderboardPayload =
+          (await leaderboardResponse.json()) as ApiResponse<LeaderboardEntry[]>;
 
-        if (!campaignResponse.ok || !campaignPayload.success || !campaignPayload.data) {
-          const errorMessage = campaignPayload.error ?? "Unable to load campaign";
+        if (
+          !campaignResponse.ok ||
+          !campaignPayload.success ||
+          !campaignPayload.data
+        ) {
+          const errorMessage =
+            campaignPayload.error ?? "Unable to load campaign";
           setCampaign(null);
           setError(errorMessage);
-          setCampaignMissing(campaignResponse.status === 404 || errorMessage.toLowerCase().includes("not found"));
+          setCampaignMissing(
+            campaignResponse.status === 404 ||
+              errorMessage.toLowerCase().includes("not found"),
+          );
           return;
         }
 
         setCampaign(campaignPayload.data);
 
-        if (leaderboardResponse.ok && leaderboardPayload.success && leaderboardPayload.data) {
+        if (
+          leaderboardResponse.ok &&
+          leaderboardPayload.success &&
+          leaderboardPayload.data
+        ) {
           setLeaderboard(leaderboardPayload.data);
         }
       } catch {
@@ -239,13 +298,27 @@ function CampaignDetailsPage() {
     return `${campaign.stats.topScorer.name} (${campaign.stats.topScorer.score.toFixed(2)} pts)`;
   }, [campaign?.stats.topScorer]);
 
-  const isFounderView = user?.role === "FOUNDER" && campaign?.founderId === user.id;
-  const isCampaignEnded = campaign?.status === "ENDED" || campaign?.status === "COMPLETED";
+  const isFounderView =
+    user?.role === "FOUNDER" && campaign?.founderId === user.id;
+  const isCampaignEnded =
+    campaign?.status === "ENDED" || campaign?.status === "COMPLETED";
   const canSubmitPost = !isFounderView && campaign?.status === "ACTIVE";
   const flowSteps = [
-    { title: "1. Funded", done: Boolean(campaign?.contractId), detail: "Contract deployed and campaign wallet funded." },
-    { title: "2. Participate", done: (campaign?.stats.postCount ?? 0) > 0, detail: "Creators submit and verify campaign posts." },
-    { title: "3. Settle", done: campaign?.status === "ENDED", detail: "Campaign ends and remaining pool is settled." }
+    {
+      title: "1. Funded",
+      done: Boolean(campaign?.contractId),
+      detail: "Contract deployed and campaign wallet funded.",
+    },
+    {
+      title: "2. Participate",
+      done: (campaign?.stats.postCount ?? 0) > 0,
+      detail: "Creators submit and verify campaign posts.",
+    },
+    {
+      title: "3. Settle",
+      done: campaign?.status === "ENDED",
+      detail: "Campaign ends and remaining pool is settled.",
+    },
   ];
 
   useEffect(() => {
@@ -259,12 +332,17 @@ function CampaignDetailsPage() {
       setPayoutError(null);
 
       try {
-        const response = await fetch(`${apiBaseUrl}/api/campaigns/${campaignId}/payouts`, {
-          method: "GET",
-          credentials: "include"
-        });
+        const response = await fetch(
+          `${apiBaseUrl}/api/campaigns/${campaignId}/payouts`,
+          {
+            method: "GET",
+            credentials: "include",
+          },
+        );
 
-        const payload = (await response.json()) as ApiResponse<CampaignPayoutEntry[]>;
+        const payload = (await response.json()) as ApiResponse<
+          CampaignPayoutEntry[]
+        >;
 
         if (!response.ok || !payload.success || !payload.data) {
           setPayoutError(payload.error ?? "Failed to load payouts");
@@ -291,10 +369,13 @@ function CampaignDetailsPage() {
 
     const fetchContractInfo = async () => {
       try {
-        const response = await fetch(`${apiBaseUrl}/api/campaigns/${campaignId}/contract-info`, {
-          method: "GET",
-          credentials: "include"
-        });
+        const response = await fetch(
+          `${apiBaseUrl}/api/campaigns/${campaignId}/contract-info`,
+          {
+            method: "GET",
+            credentials: "include",
+          },
+        );
 
         const payload = (await response.json()) as ApiResponse<ContractInfo>;
 
@@ -323,7 +404,9 @@ function CampaignDetailsPage() {
     }
 
     if (!walletConnected || !walletAddress) {
-      setPayoutError("Connect your founder Freighter wallet to end campaign on-chain");
+      setPayoutError(
+        "Connect your founder Freighter wallet to end campaign on-chain",
+      );
       return;
     }
 
@@ -332,16 +415,19 @@ function CampaignDetailsPage() {
     setPayoutError(null);
 
     try {
-      const endTxResponse = await fetch(`${apiBaseUrl}/api/campaigns/${campaignId}/end-campaign-tx`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json"
+      const endTxResponse = await fetch(
+        `${apiBaseUrl}/api/campaigns/${campaignId}/end-campaign-tx`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            founderPublicKey: walletAddress,
+          }),
         },
-        body: JSON.stringify({
-          founderPublicKey: walletAddress
-        })
-      });
+      );
 
       const endTxPayload = (await endTxResponse.json()) as ApiResponse<{
         xdr?: string;
@@ -350,12 +436,16 @@ function CampaignDetailsPage() {
       }>;
 
       if (!endTxResponse.ok || !endTxPayload.success || !endTxPayload.data) {
-        setPayoutError(endTxPayload.error ?? "Failed to prepare end-campaign transaction");
+        setPayoutError(
+          endTxPayload.error ?? "Failed to prepare end-campaign transaction",
+        );
         setPayoutStreaming(false);
         return;
       }
 
-      const streamUrl = new URL(`${apiBaseUrl}/api/campaigns/${campaignId}/payout`);
+      const streamUrl = new URL(
+        `${apiBaseUrl}/api/campaigns/${campaignId}/payout`,
+      );
       if (!endTxPayload.data.alreadyEnded) {
         if (!endTxPayload.data.xdr) {
           setPayoutError("Missing end-campaign transaction payload");
@@ -371,7 +461,7 @@ function CampaignDetailsPage() {
         }
 
         const signResult = await freighterSign(endTxPayload.data.xdr, {
-          networkPassphrase: endTxPayload.data.networkPassphrase
+          networkPassphrase: endTxPayload.data.networkPassphrase,
         });
         if (signResult.error) {
           setPayoutError(`Freighter signing failed: ${signResult.error}`);
@@ -383,13 +473,15 @@ function CampaignDetailsPage() {
         const horizon = new sdk.Horizon.Server(HORIZON_URL);
         const signedTx = sdk.TransactionBuilder.fromXDR(
           signResult.signedTxXdr,
-          endTxPayload.data.networkPassphrase ?? NETWORK_PASSPHRASE
+          endTxPayload.data.networkPassphrase ?? NETWORK_PASSPHRASE,
         );
         const submission = await horizon.submitTransaction(signedTx);
         streamUrl.searchParams.set("endTxHash", submission.hash);
       }
 
-      const eventSource = new EventSource(streamUrl.toString(), { withCredentials: true });
+      const eventSource = new EventSource(streamUrl.toString(), {
+        withCredentials: true,
+      });
       let streamCompleted = false;
 
       eventSource.addEventListener("payout", (event) => {
@@ -413,10 +505,13 @@ function CampaignDetailsPage() {
             status: data.status,
             stellarTxHash: data.txHash,
             stellarTxUrl: data.txUrl,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
           };
 
-          return [nextEntry, ...previous.filter((entry) => entry.id !== data.payoutId)].slice(0, 60);
+          return [
+            nextEntry,
+            ...previous.filter((entry) => entry.id !== data.payoutId),
+          ].slice(0, 60);
         });
       });
 
@@ -428,7 +523,7 @@ function CampaignDetailsPage() {
 
           return {
             ...previous,
-            status: "ENDED"
+            status: "ENDED",
           };
         });
       });
@@ -447,7 +542,7 @@ function CampaignDetailsPage() {
             message:
               data.status === "COMPLETED"
                 ? `Refunded ${data.amountXLM.toFixed(2)} XLM to founder wallet.`
-                : "Pool refund could not be completed automatically."
+                : "Pool refund could not be completed automatically.",
           });
         } catch {
           // ignore malformed stream events
@@ -455,7 +550,9 @@ function CampaignDetailsPage() {
       });
 
       eventSource.addEventListener("done", (event) => {
-        const payload = JSON.parse((event as MessageEvent).data) as { balanceXLM?: number };
+        const payload = JSON.parse((event as MessageEvent).data) as {
+          balanceXLM?: number;
+        };
         setCampaign((previous) => {
           if (!previous) {
             return previous;
@@ -468,8 +565,8 @@ function CampaignDetailsPage() {
             remainingBudget: balance,
             stats: {
               ...previous.stats,
-              remainingBudget: balance
-            }
+              remainingBudget: balance,
+            },
           };
         });
         streamCompleted = true;
@@ -481,7 +578,9 @@ function CampaignDetailsPage() {
         streamCompleted = true;
         setPayoutStreaming(false);
         try {
-          const payload = JSON.parse((event as MessageEvent).data) as { message?: string };
+          const payload = JSON.parse((event as MessageEvent).data) as {
+            message?: string;
+          };
           setPayoutError(payload.message ?? "Failed to execute payout stream");
         } catch {
           setPayoutError("Failed to execute payout stream");
@@ -502,7 +601,8 @@ function CampaignDetailsPage() {
       pushToast({
         type: "info",
         title: "Payout started",
-        message: "Live transaction cards will appear as distributions are processed."
+        message:
+          "Live transaction cards will appear as distributions are processed.",
       });
     } catch {
       setPayoutError("Failed to trigger payout");
@@ -531,16 +631,17 @@ function CampaignDetailsPage() {
           method: "POST",
           credentials: "include",
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             campaignId,
             postUrl,
-            platform
-          })
+            platform,
+          }),
         });
 
-        const payload = (await response.json()) as ApiResponse<PostSubmissionResponse>;
+        const payload =
+          (await response.json()) as ApiResponse<PostSubmissionResponse>;
 
         if (!response.ok || !payload.success || !payload.data?.postId) {
           setSubmissionPhase("error");
@@ -555,7 +656,7 @@ function CampaignDetailsPage() {
         pushToast({
           type: "info",
           title: "Post submitted",
-          message: "Verification has started."
+          message: "Verification has started.",
         });
       } catch {
         setSubmissionPhase("error");
@@ -583,17 +684,23 @@ function CampaignDetailsPage() {
       attempts += 1;
 
       try {
-        const response = await fetch(`${apiBaseUrl}/api/posts/${submittedPostId}/status`, {
-          method: "GET",
-          credentials: "include"
-        });
+        const response = await fetch(
+          `${apiBaseUrl}/api/posts/${submittedPostId}/status`,
+          {
+            method: "GET",
+            credentials: "include",
+          },
+        );
 
-        const payload = (await response.json()) as ApiResponse<PostStatusResponse>;
+        const payload =
+          (await response.json()) as ApiResponse<PostStatusResponse>;
 
         if (!response.ok || !payload.success || !payload.data) {
           if (!isCancelled) {
             setSubmissionPhase("error");
-            setSubmissionMessage(payload.error ?? "Unable to check verification status");
+            setSubmissionMessage(
+              payload.error ?? "Unable to check verification status",
+            );
           }
           return;
         }
@@ -606,7 +713,7 @@ function CampaignDetailsPage() {
             pushToast({
               type: "success",
               title: "Post verified",
-              message: "Your content is now counted in rankings."
+              message: "Your content is now counted in rankings.",
             });
           }
           return;
@@ -615,11 +722,15 @@ function CampaignDetailsPage() {
         if (payload.data.status === "REJECTED") {
           if (!isCancelled) {
             setSubmissionPhase("rejected");
-            setRejectionReason(payload.data.rejectionReason ?? "Post verification failed");
+            setRejectionReason(
+              payload.data.rejectionReason ?? "Post verification failed",
+            );
             pushToast({
               type: "warning",
               title: "Post rejected",
-              message: payload.data.rejectionReason ?? "Please review campaign requirements and retry."
+              message:
+                payload.data.rejectionReason ??
+                "Please review campaign requirements and retry.",
             });
           }
           return;
@@ -634,7 +745,9 @@ function CampaignDetailsPage() {
 
         if (!isCancelled) {
           setSubmissionPhase("error");
-          setSubmissionMessage("Verification timed out. Please try polling again.");
+          setSubmissionMessage(
+            "Verification timed out. Please try polling again.",
+          );
         }
       } catch {
         if (!isCancelled) {
@@ -665,43 +778,59 @@ function CampaignDetailsPage() {
 
   if (error || !campaign) {
     if (campaignMissing || !campaign) {
-      return <CampaignNotFoundFallback message={error ?? "Campaign not found"} />;
+      return (
+        <CampaignNotFoundFallback message={error ?? "Campaign not found"} />
+      );
     }
 
-    return <CampaignNotFoundFallback message={error ?? "Unable to load campaign"} />;
+    return (
+      <CampaignNotFoundFallback message={error ?? "Unable to load campaign"} />
+    );
   }
 
   return (
-    <ErrorBoundary fallback={<CampaignNotFoundFallback />} resetKey={campaignId}>
+    <ErrorBoundary
+      fallback={<CampaignNotFoundFallback />}
+      resetKey={campaignId}
+    >
       <main className="min-h-screen bg-[var(--color-background)] text-[#e2e8f0] pb-20">
         <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
-          
           {/* Hero Section */}
           <header className="relative overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/70 backdrop-blur-xl p-8 shadow-2xl">
             <div className="absolute top-0 left-0 h-1 w-full bg-[var(--color-secondary)]"></div>
-            
+
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 relative z-10">
               <div className="space-y-4 max-w-3xl">
                 <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-3xl font-bold text-white sm:text-4xl">{campaign.title}</h1>
+                  <h1 className="text-3xl font-bold text-white sm:text-4xl">
+                    {campaign.title}
+                  </h1>
                   <StatusBadge status={campaign.status} />
                 </div>
-                
-                <p className="text-lg leading-relaxed text-[var(--color-muted)]">{campaign.description}</p>
-                
+
+                <p className="text-lg leading-relaxed text-[var(--color-muted)]">
+                  {campaign.description}
+                </p>
+
                 <div className="flex items-center gap-3 pt-2">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-primary)] text-white font-bold">
                     F
                   </div>
                   <div>
-                    <p className="text-xs text-[var(--color-muted)]">Campaign Founder</p>
-                    <p className="text-sm font-semibold text-white truncate max-w-[200px]">{truncateAddress(campaign.founderId)}</p>
+                    <p className="text-xs text-[var(--color-muted)]">
+                      Campaign Founder
+                    </p>
+                    <p className="text-sm font-semibold text-white truncate max-w-[200px]">
+                      {truncateAddress(campaign.founderId)}
+                    </p>
                   </div>
                 </div>
               </div>
 
               <div className="flex-shrink-0 min-w-[240px] p-6 rounded-xl bg-[#0D0F14] border border-[var(--color-border)]">
-                <p className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-1">Contract Address</p>
+                <p className="text-xs uppercase tracking-wider text-[var(--color-muted)] mb-1">
+                  Contract Address
+                </p>
                 {campaign.contractId ? (
                   <a
                     href={`https://stellar.expert/explorer/testnet/search?term=${encodeURIComponent(campaign.contractId)}`}
@@ -712,30 +841,51 @@ function CampaignDetailsPage() {
                     {truncateAddress(campaign.contractId)} ↗
                   </a>
                 ) : (
-                  <span className="text-sm text-[var(--color-muted)]">Pending deployment...</span>
+                  <span className="text-sm text-[var(--color-muted)]">
+                    Pending deployment...
+                  </span>
                 )}
               </div>
             </div>
 
             <div className="mt-10 pt-8 border-t border-[var(--color-border)]/50">
-              <BudgetBar totalBudget={campaign.totalBudget} remainingBudget={campaign.remainingBudget} />
-              
+              <BudgetBar
+                totalBudget={campaign.totalBudget}
+                remainingBudget={campaign.remainingBudget}
+              />
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-8">
                 <div className="flex flex-col">
-                  <span className="text-sm text-[var(--color-muted)]">Total Budget</span>
-                  <span className="text-xl font-semibold text-white">{campaign.totalBudget.toLocaleString()} XLM</span>
+                  <span className="text-sm text-[var(--color-muted)]">
+                    Total Budget
+                  </span>
+                  <span className="text-xl font-semibold text-white">
+                    {campaign.totalBudget.toLocaleString()} XLM
+                  </span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-sm text-[var(--color-muted)]">Participants</span>
-                  <span className="text-xl font-semibold text-white">{campaign.stats.postCount}</span>
+                  <span className="text-sm text-[var(--color-muted)]">
+                    Participants
+                  </span>
+                  <span className="text-xl font-semibold text-white">
+                    {campaign.stats.postCount}
+                  </span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-sm text-[var(--color-muted)]">Top Scorer</span>
-                  <span className="text-xl font-semibold text-white truncate">{topScorerText}</span>
+                  <span className="text-sm text-[var(--color-muted)]">
+                    Top Scorer
+                  </span>
+                  <span className="text-xl font-semibold text-white truncate">
+                    {topScorerText}
+                  </span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-sm text-[var(--color-muted)]">Estimated Earnings</span>
-                  <span className="text-xl font-semibold text-[var(--color-secondary)]">Dynamic</span>
+                  <span className="text-sm text-[var(--color-muted)]">
+                    Estimated Earnings
+                  </span>
+                  <span className="text-xl font-semibold text-[var(--color-secondary)]">
+                    Dynamic
+                  </span>
                 </div>
               </div>
             </div>
@@ -752,8 +902,12 @@ function CampaignDetailsPage() {
                       : "border-[var(--color-border)] bg-[var(--color-surface)]/35"
                   }`}
                 >
-                  <p className="text-sm font-semibold text-white">{step.title}</p>
-                  <p className="mt-1 text-xs text-[var(--color-muted)]">{step.detail}</p>
+                  <p className="text-sm font-semibold text-white">
+                    {step.title}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--color-muted)]">
+                    {step.detail}
+                  </p>
                 </article>
               ))}
             </section>
@@ -764,15 +918,18 @@ function CampaignDetailsPage() {
               <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                 <div>
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    {campaign.contractId ? "Founder Payout Console" : "Campaign Deployment Console"}
+                    {campaign.contractId
+                      ? "Founder Payout Console"
+                      : "Campaign Deployment Console"}
                   </h2>
                   <p className="text-sm text-[var(--color-muted)] mt-1">
-                    {campaign.contractId 
+                    {campaign.contractId
                       ? "Distribute campaign budget on Stellar testnet and monitor transaction flow."
                       : "Your campaign is currently a draft. Deploy the Soroban contract and fund it to go live."}
                   </p>
                   <p className="mt-2 text-xs font-medium text-[var(--color-secondary)]">
-                    Fee buffer reserved: {FOUNDER_FEE_BUFFER_XLM} XLM (not part of distributable campaign budget)
+                    Fee buffer reserved: {FOUNDER_FEE_BUFFER_XLM} XLM (not part
+                    of distributable campaign budget)
                   </p>
                 </div>
                 {campaign.status === "ACTIVE" && campaign.contractId ? (
@@ -782,16 +939,27 @@ function CampaignDetailsPage() {
                     disabled={triggeringPayout || payoutStreaming}
                     className="rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-semibold text-white shadow-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
                   >
-                    {triggeringPayout || payoutStreaming ? "Processing..." : "End Campaign & Distribute"}
+                    {triggeringPayout || payoutStreaming
+                      ? "Processing..."
+                      : "End Campaign & Distribute"}
                   </button>
                 ) : null}
               </div>
-              {payoutError ? <p className="mb-6 text-sm text-[var(--color-danger)]">{payoutError}</p> : null}
+              {payoutError ? (
+                <p className="mb-6 text-sm text-[var(--color-danger)]">
+                  {payoutError}
+                </p>
+              ) : null}
 
               {showPayoutConfirm ? (
                 <div className="rounded-xl border border-[var(--color-primary)]/50 bg-[var(--color-surface)] p-6 mb-8">
                   <p className="text-sm text-white mb-4">
-                    This will end the campaign now (even before the scheduled end date) and distribute <span className="font-bold text-[var(--color-secondary)]">{campaign.remainingBudget.toFixed(2)} XLM</span> to participants with connected wallets.
+                    This will end the campaign now (even before the scheduled
+                    end date) and distribute{" "}
+                    <span className="font-bold text-[var(--color-secondary)]">
+                      {campaign.remainingBudget.toFixed(2)} XLM
+                    </span>{" "}
+                    to participants with connected wallets.
                   </p>
                   <div className="flex gap-4">
                     <button
@@ -815,7 +983,9 @@ function CampaignDetailsPage() {
 
               {campaign.contractId ? (
                 <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-muted)] mb-4">Live Transaction Feed</h3>
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-muted)] mb-4">
+                    Live Transaction Feed
+                  </h3>
                   {payoutLoading ? (
                     <div className="space-y-3">
                       <Skeleton className="h-16 w-full rounded-xl bg-[var(--color-surface)]" />
@@ -835,11 +1005,18 @@ function CampaignDetailsPage() {
                           className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 p-4"
                         >
                           <div>
-                            <p className="font-semibold text-white">{payout.userName}</p>
-                            <p className="text-sm text-[var(--color-secondary)] font-mono">{payout.amount.toFixed(2)} XLM</p>
+                            <p className="font-semibold text-white">
+                              {payout.userName}
+                            </p>
+                            <p className="text-sm text-[var(--color-secondary)] font-mono">
+                              {payout.amount.toFixed(2)} XLM
+                            </p>
                           </div>
                           <div className="flex items-center gap-4">
-                            <span className="rounded-full bg-[var(--color-background)] px-3 py-1 text-xs font-semibold uppercase tracking-wider" style={getPayoutStatusStyle(payout.status)}>
+                            <span
+                              className="rounded-full bg-[var(--color-background)] px-3 py-1 text-xs font-semibold uppercase tracking-wider"
+                              style={getPayoutStatusStyle(payout.status)}
+                            >
                               {payout.status}
                             </span>
                             {payout.stellarTxUrl ? (
@@ -852,7 +1029,9 @@ function CampaignDetailsPage() {
                                 View Tx ↗
                               </a>
                             ) : (
-                              <span className="text-xs text-[var(--color-muted)]">Pending...</span>
+                              <span className="text-xs text-[var(--color-muted)]">
+                                Pending...
+                              </span>
                             )}
                           </div>
                         </li>
@@ -862,14 +1041,14 @@ function CampaignDetailsPage() {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 p-8">
-                  <FundCampaignStep 
+                  <FundCampaignStep
                     campaign={{
                       id: campaign.id,
                       title: campaign.title,
                       budget: campaign.budget ?? "0",
                       budgetToken: campaign.budgetToken ?? "XLM",
-                      founderWalletAddress: campaign.founderId
-                    }} 
+                      founderWalletAddress: campaign.founderId,
+                    }}
                     onSuccess={() => {
                       // Reload campaign data to show active state
                       window.location.reload();
@@ -882,7 +1061,10 @@ function CampaignDetailsPage() {
           ) : null}
 
           <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/30 backdrop-blur p-6">
-            <ErrorBoundary fallback={<LeaderboardFallback />} resetKey={`${campaignId}-leaderboard`}>
+            <ErrorBoundary
+              fallback={<LeaderboardFallback />}
+              resetKey={`${campaignId}-leaderboard`}
+            >
               <Leaderboard
                 campaignId={campaignId}
                 initialEntries={leaderboard}
@@ -895,9 +1077,12 @@ function CampaignDetailsPage() {
             <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/30 backdrop-blur p-6 md:p-8">
               <div className="grid gap-8 lg:grid-cols-[1fr_1.5fr]">
                 <div>
-                  <h2 className="text-xl font-bold text-white mb-3">Submit your post</h2>
+                  <h2 className="text-xl font-bold text-white mb-3">
+                    Submit your post
+                  </h2>
                   <p className="text-sm text-[var(--color-muted)] mb-4">
-                    Share your live post URL and we will verify it automatically for scoring.
+                    Share your live post URL and we will verify it automatically
+                    for scoring.
                   </p>
                   <div className="space-y-2">
                     <div className="rounded-lg border border-[var(--color-border)] bg-[#0D0F14] px-3 py-2 text-xs text-[var(--color-muted)]">
@@ -912,10 +1097,18 @@ function CampaignDetailsPage() {
                   </div>
                 </div>
 
-                <ErrorBoundary fallback={<PostSubmissionFallback />} resetKey={`${campaignId}-submit`}>
+                <ErrorBoundary
+                  fallback={<PostSubmissionFallback />}
+                  resetKey={`${campaignId}-submit`}
+                >
                   <form className="space-y-5" onSubmit={handleSubmitPost}>
                     <div>
-                      <label htmlFor="post-url" className="block text-sm font-medium text-[var(--color-muted)] mb-2">Post URL</label>
+                      <label
+                        htmlFor="post-url"
+                        className="block text-sm font-medium text-[var(--color-muted)] mb-2"
+                      >
+                        Post URL
+                      </label>
                       <input
                         id="post-url"
                         type="url"
@@ -928,11 +1121,18 @@ function CampaignDetailsPage() {
                     </div>
 
                     <div>
-                      <label htmlFor="platform" className="block text-sm font-medium text-[var(--color-muted)] mb-2">Platform</label>
+                      <label
+                        htmlFor="platform"
+                        className="block text-sm font-medium text-[var(--color-muted)] mb-2"
+                      >
+                        Platform
+                      </label>
                       <select
                         id="platform"
                         value={platform}
-                        onChange={(event) => setPlatform(event.target.value as SocialPlatform)}
+                        onChange={(event) =>
+                          setPlatform(event.target.value as SocialPlatform)
+                        }
                         className="w-full rounded-xl border border-[var(--color-border)] bg-[#0D0F14] px-4 py-3 text-white focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] transition-all appearance-none"
                       >
                         <option value="TWITTER">X (Twitter)</option>
@@ -943,10 +1143,16 @@ function CampaignDetailsPage() {
 
                     <button
                       type="submit"
-                      disabled={submissionPhase === "submitting" || submissionPhase === "pending"}
+                      disabled={
+                        submissionPhase === "submitting" ||
+                        submissionPhase === "pending"
+                      }
                       className="w-full rounded-full bg-[var(--color-secondary)] px-6 py-4 text-sm font-bold text-white shadow-lg hover:opacity-90 disabled:opacity-50 transition-all"
                     >
-                      {submissionPhase === "submitting" || submissionPhase === "pending" ? "Verifying..." : "Submit Post"}
+                      {submissionPhase === "submitting" ||
+                      submissionPhase === "pending"
+                        ? "Verifying..."
+                        : "Submit Post"}
                     </button>
                   </form>
                 </ErrorBoundary>
@@ -958,17 +1164,21 @@ function CampaignDetailsPage() {
                   Verifying engagement and authenticity...
                 </div>
               )}
-              
+
               {submissionPhase === "verified" && (
                 <div className="mt-6 p-4 rounded-xl bg-[var(--color-success)]/10 text-[var(--color-success)] text-sm font-medium text-center border border-[var(--color-success)]/20">
-                  Post verified successfully! You've been added to the leaderboard.
+                  Post verified successfully! You've been added to the
+                  leaderboard.
                 </div>
               )}
 
               {submissionPhase === "rejected" && (
                 <div className="mt-6 p-4 rounded-xl bg-[var(--color-danger)]/10 text-[var(--color-danger)] text-sm text-center border border-[var(--color-danger)]/20">
-                  <span className="font-bold block mb-1">Verification Failed</span>
-                  {rejectionReason ?? "Your post didn't meet campaign requirements."}
+                  <span className="font-bold block mb-1">
+                    Verification Failed
+                  </span>
+                  {rejectionReason ??
+                    "Your post didn't meet campaign requirements."}
                 </div>
               )}
 
@@ -987,7 +1197,6 @@ function CampaignDetailsPage() {
               </p>
             </section>
           ) : null}
-
         </section>
       </main>
     </ErrorBoundary>

@@ -17,20 +17,20 @@ type ErrorBoundaryState = {
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = {
     hasError: false,
-    error: null
+    error: null,
   };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return {
       hasError: true,
-      error
+      error,
     };
   }
 
   componentDidCatch(error: Error, errorInfo: { componentStack: string }) {
     console.error("UI boundary captured an error", {
       error,
-      componentStack: errorInfo.componentStack
+      componentStack: errorInfo.componentStack,
     });
 
     this.props.onError?.(error, errorInfo);
@@ -40,7 +40,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     if (previousProps.resetKey !== this.props.resetKey && this.state.hasError) {
       this.setState({
         hasError: false,
-        error: null
+        error: null,
       });
     }
   }

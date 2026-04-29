@@ -6,7 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState
+  useState,
 } from "react";
 
 // ---------------------------------------------------------------------------
@@ -25,7 +25,9 @@ async function getFreighter(): Promise<FreighterApi | null> {
   try {
     const mod = await import("@stellar/freighter-api");
     // v3 exports named functions at the top level
-    const api = (mod as unknown as { freighterApi?: FreighterApi }) .freighterApi ?? (mod as unknown as FreighterApi);
+    const api =
+      (mod as unknown as { freighterApi?: FreighterApi }).freighterApi ??
+      (mod as unknown as FreighterApi);
     if (typeof api?.isConnected === "function") return api;
     return null;
   } catch {
@@ -75,7 +77,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: address })
+        body: JSON.stringify({ walletAddress: address }),
       });
     } catch {
       // Non-fatal — wallet is still stored locally
@@ -97,7 +99,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }
 
       setIsFreighterInstalled(true);
-      const manuallyDisconnected = localStorage.getItem(DISCONNECTED_KEY) === "1";
+      const manuallyDisconnected =
+        localStorage.getItem(DISCONNECTED_KEY) === "1";
 
       if (manuallyDisconnected) {
         localStorage.removeItem(STORAGE_KEY);
@@ -109,12 +112,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       try {
         const [connectedResult, allowedResult] = await Promise.all([
           freighter.isConnected(),
-          freighter.isAllowed()
+          freighter.isAllowed(),
         ]);
 
         if (cancelled) return;
 
-        const stillActive = connectedResult.isConnected && allowedResult.isAllowed;
+        const stillActive =
+          connectedResult.isConnected && allowedResult.isAllowed;
 
         if (stillActive) {
           // Try to get the current address
@@ -141,7 +145,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     };
 
     void init();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ---- connectWallet ----
@@ -174,7 +180,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem(DISCONNECTED_KEY);
       void persistWalletToApi(result.address);
     } catch (err) {
-      setConnectError(err instanceof Error ? err.message : "Failed to connect wallet");
+      setConnectError(
+        err instanceof Error ? err.message : "Failed to connect wallet",
+      );
     } finally {
       setIsConnecting(false);
     }
@@ -196,16 +204,25 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       isConnecting,
       connectError,
       connectWallet,
-      disconnectWallet
+      disconnectWallet,
     }),
-    [walletAddress, isFreighterInstalled, isConnecting, connectError, connectWallet, disconnectWallet]
+    [
+      walletAddress,
+      isFreighterInstalled,
+      isConnecting,
+      connectError,
+      connectWallet,
+      disconnectWallet,
+    ],
   );
 
   // Avoid hydration mismatch — render children immediately but wallet state
   // settles after the async init. Components should handle walletAddress === null.
   void hydrated; // used to suppress lint; state is set but drives no conditional render here
 
-  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
+  return (
+    <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
+  );
 }
 
 // ---------------------------------------------------------------------------

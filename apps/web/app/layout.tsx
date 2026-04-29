@@ -5,11 +5,11 @@ import "../styles/globals.css";
 
 export const metadata: Metadata = {
   title: "Earnify",
-  description: "Social media marketing platform monorepo starter"
+  description: "Social media marketing platform monorepo starter",
 };
 
 export default function RootLayout({
-  children
+  children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
@@ -21,4 +21,3 @@ export default function RootLayout({
     </html>
   );
 }
-

@@ -26,7 +26,7 @@ async function runEngagementRefreshCycle(): Promise<EngagementRefreshSummary> {
       failedCampaigns: 0,
       totalCampaigns: 0,
       startedAt: now,
-      finishedAt: now
+      finishedAt: now,
     };
   }
 
@@ -36,7 +36,7 @@ async function runEngagementRefreshCycle(): Promise<EngagementRefreshSummary> {
   try {
     const activeCampaigns = await prisma.campaign.findMany({
       where: { status: CampaignStatus.ACTIVE },
-      select: { id: true }
+      select: { id: true },
     });
 
     let processedCampaigns = 0;
@@ -55,7 +55,7 @@ async function runEngagementRefreshCycle(): Promise<EngagementRefreshSummary> {
         failedCampaigns += 1;
         console.error("Engagement refresh failed for campaign", {
           campaignId: campaign.id,
-          error
+          error,
         });
       }
     }
@@ -66,7 +66,7 @@ async function runEngagementRefreshCycle(): Promise<EngagementRefreshSummary> {
       failedCampaigns,
       totalCampaigns: activeCampaigns.length,
       startedAt: startedAt.toISOString(),
-      finishedAt: new Date().toISOString()
+      finishedAt: new Date().toISOString(),
     };
   } finally {
     refreshInProgress = false;

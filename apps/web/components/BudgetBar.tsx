@@ -8,16 +8,26 @@ function clampPercent(value: number) {
   return Math.max(0, Math.min(100, value));
 }
 
-export function BudgetBar({ totalBudget, remainingBudget, size = "md" }: BudgetBarProps) {
+export function BudgetBar({
+  totalBudget,
+  remainingBudget,
+  size = "md",
+}: BudgetBarProps) {
   const safeTotal = totalBudget > 0 ? totalBudget : 1;
-  const spentPercent = clampPercent(((safeTotal - remainingBudget) / safeTotal) * 100);
+  const spentPercent = clampPercent(
+    ((safeTotal - remainingBudget) / safeTotal) * 100,
+  );
   const barHeight = size === "sm" ? "0.45rem" : "0.65rem";
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
-        <span className="font-semibold text-[#f5f5f5]">{remainingBudget.toFixed(2)} XLM left</span>
-        <span className="font-medium text-[var(--color-muted)]">{totalBudget.toFixed(2)} XLM total</span>
+        <span className="font-semibold text-[#f5f5f5]">
+          {remainingBudget.toFixed(2)} XLM left
+        </span>
+        <span className="font-medium text-[var(--color-muted)]">
+          {totalBudget.toFixed(2)} XLM total
+        </span>
       </div>
 
       <div

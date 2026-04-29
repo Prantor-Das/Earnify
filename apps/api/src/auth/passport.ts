@@ -6,7 +6,9 @@ import type { AuthUser } from "@earnify/shared";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const googleCallbackUrl = process.env.GOOGLE_CALLBACK_URL ?? "http://localhost:4000/api/auth/google/callback";
+const googleCallbackUrl =
+  process.env.GOOGLE_CALLBACK_URL ??
+  "http://localhost:4000/api/auth/google/callback";
 
 function toAuthUser(user: {
   id: string;
@@ -22,19 +24,21 @@ function toAuthUser(user: {
     name: user.name,
     avatar: user.avatar,
     role: user.role,
-    walletAddress: user.walletAddress
+    walletAddress: user.walletAddress,
   };
 }
 
 if (!googleClientId || !googleClientSecret) {
-  console.warn("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required to enable Google OAuth");
+  console.warn(
+    "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required to enable Google OAuth",
+  );
 } else {
   passport.use(
     new GoogleStrategy(
       {
         clientID: googleClientId,
         clientSecret: googleClientSecret,
-        callbackURL: googleCallbackUrl
+        callbackURL: googleCallbackUrl,
       },
       async (_accessToken, _refreshToken, profile, done) => {
         try {
@@ -45,10 +49,11 @@ if (!googleClientId || !googleClientSecret) {
             return;
           }
 
-          const name = profile.displayName || email.split("@")[0] || "Earnify User";
+          const name =
+            profile.displayName || email.split("@")[0] || "Earnify User";
           const avatar = profile.photos?.[0]?.value ?? null;
           const existingUser = await prisma.user.findUnique({
-            where: { email }
+            where: { email },
           });
 
           const role: UserRole = existingUser ? existingUser.role : "USER";
@@ -59,23 +64,23 @@ if (!googleClientId || !googleClientSecret) {
                 data: {
                   name,
                   avatar,
-                  role
-                }
+                  role,
+                },
               })
             : await prisma.user.create({
                 data: {
                   email,
                   name,
                   avatar,
-                  role
-                }
+                  role,
+                },
               });
 
           done(null, toAuthUser(user));
         } catch (error) {
           done(error as Error);
         }
-      }
-    )
+      },
+    ),
   );
 }

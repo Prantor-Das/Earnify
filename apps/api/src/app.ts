@@ -9,7 +9,10 @@ import type { ApiHealthResponse } from "@earnify/shared";
 import { authRouter } from "./auth/routes.ts";
 import "./auth/passport.ts";
 import { runEngagementRefreshCycle } from "./jobs/engagementCron.ts";
-import { globalErrorHandler, notFoundHandler } from "./middleware/error-handler.ts";
+import {
+  globalErrorHandler,
+  notFoundHandler,
+} from "./middleware/error-handler.ts";
 import { adminRouter } from "./routes/admin.ts";
 import { campaignsRouter } from "./routes/campaigns.ts";
 import { dashboardRouter } from "./routes/dashboard.ts";
@@ -44,6 +47,8 @@ function createApp() {
   const app = express();
   const allowedOrigins = getAllowedOrigins();
 
+  app.set("trust proxy", 1);
+
   app.use(
     cors({
       origin(origin, callback) {
@@ -60,8 +65,8 @@ function createApp() {
 
         callback(null, false);
       },
-      credentials: true
-    })
+      credentials: true,
+    }),
   );
   app.use(express.json());
   app.use(cookieParser());
@@ -87,26 +92,39 @@ function createApp() {
       status: "ok",
       service: "earnify-api",
       timestamp: new Date().toISOString(),
-      campaigns
+      campaigns,
     };
 
     sendSuccess(response, payload);
   });
 
-  app.all("/api/internal/cron/engagement-refresh", async (request, response) => {
-    if (!hasValidCronSecret(request)) {
-      sendError(response, "Unauthorized cron request", 401, "UNAUTHORIZED_CRON");
-      return;
-    }
+  app.all(
+    "/api/internal/cron/engagement-refresh",
+    async (request, response) => {
+      if (!hasValidCronSecret(request)) {
+        sendError(
+          response,
+          "Unauthorized cron request",
+          401,
+          "UNAUTHORIZED_CRON",
+        );
+        return;
+      }
 
-    try {
-      const summary = await runEngagementRefreshCycle();
-      sendSuccess(response, summary);
-    } catch (error) {
-      console.error("Manual engagement refresh failed", error);
-      sendError(response, "Failed to refresh engagement metrics", 500, "ENGAGEMENT_REFRESH_FAILED");
-    }
-  });
+      try {
+        const summary = await runEngagementRefreshCycle();
+        sendSuccess(response, summary);
+      } catch (error) {
+        console.error("Manual engagement refresh failed", error);
+        sendError(
+          response,
+          "Failed to refresh engagement metrics",
+          500,
+          "ENGAGEMENT_REFRESH_FAILED",
+        );
+      }
+    },
+  );
 
   app.use(notFoundHandler);
   app.use(globalErrorHandler);

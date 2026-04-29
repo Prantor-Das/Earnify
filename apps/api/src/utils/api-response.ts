@@ -29,17 +29,22 @@ function defaultCodeForStatus(status: number) {
 export function sendSuccess<T>(response: Response, data: T, status = 200) {
   const payload: ApiResponse<T> = {
     success: true,
-    data
+    data,
   };
 
   return response.status(status).json(payload);
 }
 
-export function sendError(response: Response, error: string, status = 400, code?: string) {
+export function sendError(
+  response: Response,
+  error: string,
+  status = 400,
+  code?: string,
+) {
   const payload: ApiResponse<never> = {
     success: false,
     error,
-    code: code ?? defaultCodeForStatus(status)
+    code: code ?? defaultCodeForStatus(status),
   };
 
   return response.status(status).json(payload);

@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import type { ApiResponse, AuthUser } from "@earnify/shared";
 
@@ -14,7 +21,8 @@ type AuthContextValue = {
   logout: () => Promise<void>;
 };
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+const apiBaseUrl =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -33,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
         method: "GET",
-        credentials: "include"
+        credentials: "include",
       });
 
       const payload = await parseJson<{ user: AuthUser }>(response);
@@ -68,9 +76,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         method: "PATCH",
         credentials: "include",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ role })
+        body: JSON.stringify({ role }),
       });
 
       const payload = await parseJson<{ user: AuthUser }>(response);
@@ -89,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await fetch(`${apiBaseUrl}/api/auth/logout`, {
         method: "POST",
-        credentials: "include"
+        credentials: "include",
       });
     } finally {
       setUser(null);
@@ -108,9 +116,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshAuth,
       switchRole,
       loginWithGoogle,
-      logout
+      logout,
     }),
-    [loading, loginWithGoogle, logout, refreshAuth, switchRole, user]
+    [loading, loginWithGoogle, logout, refreshAuth, switchRole, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

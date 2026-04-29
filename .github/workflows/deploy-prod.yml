@@ -6,125 +6,169 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: production-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
-  PNPM_VERSION: 10.33.0
+  NODE_VERSION: "22"
+  PNPM_VERSION: "10.33.0"
 
 jobs:
-  test:
+  validate:
+    name: Validate release
     runs-on: ubuntu-latest
-    
+
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'pnpm'
-      
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
-      - name: Lint
-        run: pnpm lint
-      
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Run tests
+        run: pnpm test
+
       - name: Validate contracts
         run: node scripts/validate-contracts.js
-  
+
+      - name: Build
+        run: pnpm build
+
   deploy-database:
+    name: Deploy database
     runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    
+    needs: validate
+
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'pnpm'
-      
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
-      - name: Run database migrations
+
+      - name: Deploy Prisma migrations
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: "1"
         run: |
           pnpm --filter @earnify/db db:generate
           pnpm --filter @earnify/db db:deploy
-  
+
   deploy-frontend:
+    name: Deploy frontend
     runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    
+    needs: validate
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_WEB }}
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Deploy to Vercel (Frontend)
-        uses: vercel/action@master
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_WEB }}
-          working-directory: apps/web
-          production: true
-  
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Pull Vercel environment
+        working-directory: apps/web
+        run: pnpm dlx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Vercel app
+        working-directory: apps/web
+        run: pnpm dlx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy Vercel app
+        working-directory: apps/web
+        run: pnpm dlx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
   deploy-backend:
+    name: Deploy backend
     runs-on: ubuntu-latest
-    needs: [test, deploy-database]
-    if: github.ref == 'refs/heads/main'
-    
+    needs:
+      - validate
+      - deploy-database
+    env:
+      RAILWAY_DEPLOY_HOOK: ${{ secrets.RAILWAY_DEPLOY_HOOK }}
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Trigger Render deployment (Backend)
+      - name: Trigger Render deployment
+        if: env.RENDER_DEPLOY_HOOK != ''
         run: |
-          curl --request POST \
-            --url "${{ secrets.RENDER_DEPLOY_HOOK }}" \
-            --header 'content-type: application/json'
-        if: secrets.RENDER_DEPLOY_HOOK != ''
-      
-      - name: Trigger Railway deployment (Alternative)
+          curl --fail --request POST \
+            --url "$RENDER_DEPLOY_HOOK" \
+            --header "content-type: application/json"
+
+      - name: Trigger Railway deployment
+        if: env.RAILWAY_DEPLOY_HOOK != ''
         run: |
-          curl --request POST \
-            --url "${{ secrets.RAILWAY_DEPLOY_HOOK }}" \
-            --header 'content-type: application/json'
-        if: secrets.RAILWAY_DEPLOY_HOOK != ''
-  
+          curl --fail --request POST \
+            --url "$RAILWAY_DEPLOY_HOOK" \
+            --header "content-type: application/json"
+
   contract-deployment-notice:
+    name: Contract deployment notice
     runs-on: ubuntu-latest
-    needs: deploy-backend
-    if: github.ref == 'refs/heads/main'
-    
+    needs:
+      - deploy-frontend
+      - deploy-backend
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Create deployment notice
+      - name: Print contract deployment instructions
         run: |
-          echo "🚀 Deployment Complete!"
+          echo "Deployment completed."
           echo ""
-          echo "✅ Frontend deployed to Vercel"
-          echo "✅ Backend deployed to Render/Railway"
-          echo "✅ Database migrations applied"
+          echo "Frontend deployed to Vercel."
+          echo "Backend deployment hook completed."
+          echo "Database migrations applied."
           echo ""
-          echo "📝 Manual Step Required:"
-          echo "To deploy new Soroban contract, run:"
+          echo "Manual contract deployment remains separate:"
           echo "  export STELLAR_ADMIN_SECRET='your-secret'"
-          echo "  export STELLAR_NETWORK='testnet' (or 'public')"
+          echo "  export STELLAR_NETWORK='testnet'"
           echo "  ./scripts/deploy-contract.sh"
-          echo ""
-          echo "Or create a separate workflow for contract deployment."

@@ -14,8 +14,10 @@ type TxResult = {
 const execFileAsync = promisify(execFile);
 
 const networkName = process.env.STELLAR_NETWORK ?? "testnet";
-const horizonUrl = process.env.STELLAR_HORIZON_URL ?? "https://horizon-testnet.stellar.org";
-const sorobanRpcUrl = process.env.STELLAR_SOROBAN_RPC_URL ?? "https://soroban-testnet.stellar.org";
+const horizonUrl =
+  process.env.STELLAR_HORIZON_URL ?? "https://horizon-testnet.stellar.org";
+const sorobanRpcUrl =
+  process.env.STELLAR_SOROBAN_RPC_URL ?? "https://soroban-testnet.stellar.org";
 const networkPassphrase =
   process.env.STELLAR_NETWORK_PASSPHRASE ?? StellarSdk.Networks.TESTNET;
 const adminSecret = process.env.STELLAR_ADMIN_SECRET;
@@ -42,16 +44,26 @@ function normalizeCandidatePath(pathValue: string) {
 
 function getWasmCandidates() {
   const normalizedConfiguredPath = normalizeCandidatePath(configuredWasmPath);
-  const filename = configuredWasmPath.split("/").pop() ?? "earnify_campaign.optimized.wasm";
+  const filename =
+    configuredWasmPath.split("/").pop() ?? "earnify_campaign.optimized.wasm";
 
   return [
     normalizedConfiguredPath,
-    join(contractDir, "target/wasm32v1-none/release/earnify_campaign.optimized.wasm"),
+    join(
+      contractDir,
+      "target/wasm32v1-none/release/earnify_campaign.optimized.wasm",
+    ),
     join(contractDir, "target/wasm32v1-none/release/earnify_campaign.wasm"),
-    join(contractDir, "target/wasm32-unknown-unknown/release/earnify_campaign.optimized.wasm"),
-    join(contractDir, "target/wasm32-unknown-unknown/release/earnify_campaign.wasm"),
+    join(
+      contractDir,
+      "target/wasm32-unknown-unknown/release/earnify_campaign.optimized.wasm",
+    ),
+    join(
+      contractDir,
+      "target/wasm32-unknown-unknown/release/earnify_campaign.wasm",
+    ),
     // Last resort: keep original filename under canonical v1 target dir
-    join(contractDir, "target/wasm32v1-none/release", filename)
+    join(contractDir, "target/wasm32v1-none/release", filename),
   ];
 }
 
@@ -65,9 +77,16 @@ async function ensureContractWasmPath() {
   // Build + optimize contract if artifact is missing.
   await execFileAsync("stellar", ["contract", "build"], { cwd: contractDir });
 
-  const builtWasm = join(contractDir, "target/wasm32v1-none/release/earnify_campaign.wasm");
+  const builtWasm = join(
+    contractDir,
+    "target/wasm32v1-none/release/earnify_campaign.wasm",
+  );
   if (existsSync(builtWasm)) {
-    await execFileAsync("stellar", ["contract", "optimize", "--wasm", builtWasm], { cwd: repoRootDir });
+    await execFileAsync(
+      "stellar",
+      ["contract", "optimize", "--wasm", builtWasm],
+      { cwd: repoRootDir },
+    );
   }
 
   for (const candidate of getWasmCandidates()) {
@@ -77,7 +96,7 @@ async function ensureContractWasmPath() {
   }
 
   throw new Error(
-    "Soroban contract WASM not found after build. Set SOROBAN_WASM_PATH or run stellar contract build/optimize."
+    "Soroban contract WASM not found after build. Set SOROBAN_WASM_PATH or run stellar contract build/optimize.",
   );
 }
 
@@ -103,15 +122,21 @@ const sdk = StellarSdk as unknown as {
     };
     assembleTransaction: (tx: any, simulation: unknown) => any;
   };
-  Contract: new (contractId: string) => { call: (method: string, ...args: unknown[]) => any };
+  Contract: new (contractId: string) => {
+    call: (method: string, ...args: unknown[]) => any;
+  };
   Asset: { native: () => unknown };
   Keypair: { fromSecret: (secret: string) => any };
   Operation: {
-    payment: (input: { destination: string; asset: unknown; amount: string }) => any;
+    payment: (input: {
+      destination: string;
+      asset: unknown;
+      amount: string;
+    }) => any;
   };
   TransactionBuilder: new (
     source: any,
-    opts: { fee: string; networkPassphrase: string }
+    opts: { fee: string; networkPassphrase: string },
   ) => {
     addOperation: (op: any) => any;
     setTimeout: (seconds: number) => any;
@@ -134,7 +159,7 @@ if (!sorobanNamespace) {
 // sorobanNamespace is guaranteed non-null from here — the throw above ensures it.
 const rpcNs = sorobanNamespace;
 const sorobanRpc = new rpcNs.Server(sorobanRpcUrl, {
-  allowHttp: sorobanRpcUrl.startsWith("http://")
+  allowHttp: sorobanRpcUrl.startsWith("http://"),
 });
 
 function requireAdminSecret() {
@@ -164,7 +189,9 @@ function parseContractId(stdout: string): string {
   const contractId = candidates.find((line) => /^C[A-Z0-9]{55}$/.test(line));
 
   if (!contractId) {
-    throw new Error("Unable to parse deployed contract id from stellar CLI output");
+    throw new Error(
+      "Unable to parse deployed contract id from stellar CLI output",
+    );
   }
 
   return contractId;
@@ -182,7 +209,7 @@ async function withSorobanInvocation(params: {
 
   const tx = new sdk.TransactionBuilder(sourceAccount, {
     fee: "1000000",
-    networkPassphrase
+    networkPassphrase,
   })
     .addOperation(contract.call(params.method, ...params.args))
     .setTimeout(30)
@@ -210,13 +237,16 @@ async function withSorobanInvocation(params: {
     try {
       status = await sorobanRpc.getTransaction(txHash);
     } catch (error) {
-      if (error instanceof Error && error.message.includes("Bad union switch")) {
+      if (
+        error instanceof Error &&
+        error.message.includes("Bad union switch")
+      ) {
         // Some SDK/RPC combos can fail to parse newer union variants from
         // getTransaction. Keep the tx hash as best-effort success so callers
         // can continue without treating this as a hard failure.
         return {
           txHash,
-          result: { status: "UNKNOWN_PARSER_FALLBACK" }
+          result: { status: "UNKNOWN_PARSER_FALLBACK" },
         };
       }
       throw error;
@@ -225,7 +255,7 @@ async function withSorobanInvocation(params: {
     if (status.status === "SUCCESS") {
       return {
         txHash,
-        result: status
+        result: status,
       };
     }
 
@@ -251,7 +281,7 @@ async function invokeReadonly(params: {
 
   const tx = new sdk.TransactionBuilder(sourceAccount, {
     fee: "1000000",
-    networkPassphrase
+    networkPassphrase,
   })
     .addOperation(contract.call(params.method, ...params.args))
     .setTimeout(30)
@@ -266,7 +296,10 @@ async function invokeReadonly(params: {
   return retval ? sdk.scValToNative(retval) : null;
 }
 
-function parseTransferAmountFromMeta(metaBase64: string | undefined, creatorPublicKey: string): number | null {
+function parseTransferAmountFromMeta(
+  metaBase64: string | undefined,
+  creatorPublicKey: string,
+): number | null {
   if (!metaBase64) {
     return null;
   }
@@ -310,34 +343,42 @@ async function fundAdminIfNeeded(secret: string) {
 
   const account = await horizon.loadAccount(publicKey);
   const nativeBalance = Number(
-    account.balances.find((balance: { asset_type: string; balance: string }) => balance.asset_type === "native")
-      ?.balance ?? "0"
+    account.balances.find(
+      (balance: { asset_type: string; balance: string }) =>
+        balance.asset_type === "native",
+    )?.balance ?? "0",
   );
 
   if (nativeBalance >= 100) {
     return;
   }
 
-  const response = await fetch(`https://friendbot.stellar.org/?addr=${encodeURIComponent(publicKey)}`);
+  const response = await fetch(
+    `https://friendbot.stellar.org/?addr=${encodeURIComponent(publicKey)}`,
+  );
   if (!response.ok) {
     throw new Error("Unable to fund Stellar admin account via Friendbot");
   }
 }
 
-async function submitClassicPayment(sourceSecret: string, destination: string, amountXLM: number): Promise<string> {
+async function submitClassicPayment(
+  sourceSecret: string,
+  destination: string,
+  amountXLM: number,
+): Promise<string> {
   const sourceKeypair = sdk.Keypair.fromSecret(sourceSecret);
   const sourceAccount = await horizon.loadAccount(sourceKeypair.publicKey());
 
   const transaction = new sdk.TransactionBuilder(sourceAccount, {
     fee: String(await horizon.fetchBaseFee()),
-    networkPassphrase
+    networkPassphrase,
   })
     .addOperation(
       sdk.Operation.payment({
         destination,
         asset: sdk.Asset.native(),
-        amount: amountXLM.toFixed(7)
-      })
+        amount: amountXLM.toFixed(7),
+      }),
     )
     .setTimeout(30)
     .build();
@@ -349,7 +390,7 @@ async function submitClassicPayment(sourceSecret: string, destination: string, a
 
 async function deployCampaignContract(
   founderSecret: string,
-  totalBudgetXLM: number
+  totalBudgetXLM: number,
 ): Promise<{ contractId: string; txHash: string }> {
   if (totalBudgetXLM <= 0) {
     throw new Error("totalBudgetXLM must be a positive number");
@@ -369,7 +410,7 @@ async function deployCampaignContract(
     "--source",
     admin,
     "--network",
-    networkName
+    networkName,
   ]);
 
   const contractId = parseContractId(stdout);
@@ -383,20 +424,20 @@ async function deployCampaignContract(
     args: [
       sdk.nativeToScVal(founderKeypair.publicKey(), { type: "address" }),
       sdk.nativeToScVal(adminPublicKey, { type: "address" }),
-      sdk.nativeToScVal(toStroops(totalBudgetXLM), { type: "i128" })
-    ]
+      sdk.nativeToScVal(toStroops(totalBudgetXLM), { type: "i128" }),
+    ],
   });
 
   return {
     contractId,
-    txHash: initialize.txHash
+    txHash: initialize.txHash,
   };
 }
 
 async function updateCreatorScore(
   campaignContractId: string,
   creatorPublicKey: string,
-  newScore: number
+  newScore: number,
 ): Promise<{ txHash: string }> {
   const admin = requireAdminSecret();
   const adminPublicKey = sdk.Keypair.fromSecret(admin).publicKey();
@@ -408,8 +449,8 @@ async function updateCreatorScore(
     args: [
       sdk.nativeToScVal(adminPublicKey, { type: "address" }),
       sdk.nativeToScVal(creatorPublicKey, { type: "address" }),
-      sdk.nativeToScVal(BigInt(Math.trunc(newScore)), { type: "i128" })
-    ]
+      sdk.nativeToScVal(BigInt(Math.trunc(newScore)), { type: "i128" }),
+    ],
   });
 
   return { txHash: tx.txHash };
@@ -417,30 +458,36 @@ async function updateCreatorScore(
 
 async function triggerCreatorPayout(
   campaignContractId: string,
-  creatorSecret: string
+  creatorSecret: string,
 ): Promise<{ txHash: string; amountXLM: number }> {
   const creatorPublicKey = sdk.Keypair.fromSecret(creatorSecret).publicKey();
-  const payoutEstimateBefore = await getPayoutEstimate(campaignContractId, creatorPublicKey);
+  const payoutEstimateBefore = await getPayoutEstimate(
+    campaignContractId,
+    creatorPublicKey,
+  );
 
   const tx = await withSorobanInvocation({
     campaignContractId,
     method: "claim_payout",
     sourceSecret: creatorSecret,
-    args: [sdk.nativeToScVal(creatorPublicKey, { type: "address" })]
+    args: [sdk.nativeToScVal(creatorPublicKey, { type: "address" })],
   });
 
   const status = tx.result as { resultMetaXdr?: string };
-  const parsedAmount = parseTransferAmountFromMeta(status.resultMetaXdr, creatorPublicKey);
+  const parsedAmount = parseTransferAmountFromMeta(
+    status.resultMetaXdr,
+    creatorPublicKey,
+  );
 
   return {
     txHash: tx.txHash,
-    amountXLM: parsedAmount ?? payoutEstimateBefore
+    amountXLM: parsedAmount ?? payoutEstimateBefore,
   };
 }
 
 async function endCampaign(
   campaignContractId: string,
-  founderSecret: string
+  founderSecret: string,
 ): Promise<{ txHash: string }> {
   const founderPublicKey = sdk.Keypair.fromSecret(founderSecret).publicKey();
 
@@ -448,48 +495,61 @@ async function endCampaign(
     campaignContractId,
     method: "end_campaign",
     sourceSecret: founderSecret,
-    args: [sdk.nativeToScVal(founderPublicKey, { type: "address" })]
+    args: [sdk.nativeToScVal(founderPublicKey, { type: "address" })],
   });
 
   return { txHash: tx.txHash };
 }
 
-async function getOnChainScore(campaignContractId: string, creatorPublicKey: string): Promise<number> {
+async function getOnChainScore(
+  campaignContractId: string,
+  creatorPublicKey: string,
+): Promise<number> {
   const result = await invokeReadonly({
     campaignContractId,
     method: "get_score",
-    args: [sdk.nativeToScVal(creatorPublicKey, { type: "address" })]
+    args: [sdk.nativeToScVal(creatorPublicKey, { type: "address" })],
   });
 
   return Number(result ?? 0);
 }
 
-async function getPayoutEstimate(campaignContractId: string, creatorPublicKey: string): Promise<number> {
+async function getPayoutEstimate(
+  campaignContractId: string,
+  creatorPublicKey: string,
+): Promise<number> {
   const result = await invokeReadonly({
     campaignContractId,
     method: "get_payout_estimate",
-    args: [sdk.nativeToScVal(creatorPublicKey, { type: "address" })]
+    args: [sdk.nativeToScVal(creatorPublicKey, { type: "address" })],
   });
 
   const normalized =
-    typeof result === "bigint" || typeof result === "number" || typeof result === "string" ? result : 0;
+    typeof result === "bigint" ||
+    typeof result === "number" ||
+    typeof result === "string"
+      ? result
+      : 0;
 
   return fromStroops(BigInt(normalized));
 }
 
-async function getCampaignInfo(
-  campaignContractId: string
-): Promise<{ totalBudgetXLM: number; remainingBudgetXLM: number; status: string; creatorScores: Record<string, number> }> {
+async function getCampaignInfo(campaignContractId: string): Promise<{
+  totalBudgetXLM: number;
+  remainingBudgetXLM: number;
+  status: string;
+  creatorScores: Record<string, number>;
+}> {
   const info = (await invokeReadonly({
     campaignContractId,
     method: "get_campaign_info",
-    args: []
+    args: [],
   })) as [bigint, bigint, string] | null;
 
   const scores = (await invokeReadonly({
     campaignContractId,
     method: "get_all_scores",
-    args: []
+    args: [],
   })) as unknown;
 
   const creatorScores: Record<string, number> = {};
@@ -506,7 +566,9 @@ async function getCampaignInfo(
       }
     }
   } else if (scores && typeof scores === "object") {
-    for (const [key, value] of Object.entries(scores as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(
+      scores as Record<string, unknown>,
+    )) {
       creatorScores[key] = Number(value);
     }
   }
@@ -515,7 +577,7 @@ async function getCampaignInfo(
     totalBudgetXLM: info ? fromStroops(info[0]) : 0,
     remainingBudgetXLM: info ? fromStroops(info[1]) : 0,
     status: info ? String(info[2]) : "UNKNOWN",
-    creatorScores
+    creatorScores,
   };
 }
 
@@ -528,14 +590,19 @@ async function getContractBalance(contractId: string): Promise<number> {
 // verifyCampaignFunded — checks on-chain remaining budget >= expectedBudget
 // ---------------------------------------------------------------------------
 
-async function verifyCampaignFunded(contractId: string, expectedBudgetStroops: bigint): Promise<boolean> {
+async function verifyCampaignFunded(
+  contractId: string,
+  expectedBudgetStroops: bigint,
+): Promise<boolean> {
   const attempts = 6;
   const waitMs = 1_500;
 
   for (let index = 0; index < attempts; index += 1) {
     try {
       const info = await getCampaignInfo(contractId);
-      const remainingStroops = BigInt(Math.round(info.remainingBudgetXLM * 10_000_000));
+      const remainingStroops = BigInt(
+        Math.round(info.remainingBudgetXLM * 10_000_000),
+      );
       if (remainingStroops >= expectedBudgetStroops) {
         return true;
       }
@@ -584,7 +651,7 @@ async function buildInitializeTx(params: {
       "--source",
       admin,
       "--network",
-      networkName
+      networkName,
     ]);
     contractId = parseContractId(stdout);
   }
@@ -597,15 +664,15 @@ async function buildInitializeTx(params: {
 
   const tx = new sdk.TransactionBuilder(founderAccount, {
     fee: "1000000",
-    networkPassphrase
+    networkPassphrase,
   })
     .addOperation(
       contract.call(
         "initialize",
         sdk.nativeToScVal(founderPublicKey, { type: "address" }),
         sdk.nativeToScVal(adminPublicKey, { type: "address" }),
-        sdk.nativeToScVal(toStroops(totalBudgetXLM), { type: "i128" })
-      )
+        sdk.nativeToScVal(toStroops(totalBudgetXLM), { type: "i128" }),
+      ),
     )
     .setTimeout(60)
     .build();
@@ -633,10 +700,13 @@ async function buildEndCampaignTx(params: {
 
   const tx = new sdk.TransactionBuilder(founderAccount, {
     fee: "1000000",
-    networkPassphrase
+    networkPassphrase,
   })
     .addOperation(
-      contract.call("end_campaign", sdk.nativeToScVal(founderPublicKey, { type: "address" }))
+      contract.call(
+        "end_campaign",
+        sdk.nativeToScVal(founderPublicKey, { type: "address" }),
+      ),
     )
     .setTimeout(60)
     .build();
@@ -644,7 +714,9 @@ async function buildEndCampaignTx(params: {
   const simulation = await sorobanRpc.simulateTransaction(tx);
   if (rpcNs.Api.isSimulationError(simulation)) {
     const details = JSON.stringify(simulation, null, 2).slice(0, 500);
-    throw new Error(`Unable to prepare end_campaign transaction with current on-chain state. ${details}`);
+    throw new Error(
+      `Unable to prepare end_campaign transaction with current on-chain state. ${details}`,
+    );
   }
 
   const assembled = rpcNs.assembleTransaction(tx, simulation).build();
@@ -665,5 +737,5 @@ export {
   triggerCreatorPayout,
   updateCreatorScore,
   verifyCampaignFunded,
-  submitClassicPayment
+  submitClassicPayment,
 };

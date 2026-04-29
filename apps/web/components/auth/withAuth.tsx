@@ -13,7 +13,7 @@ type WithAuthOptions = {
 
 export function withAuth<P extends object>(
   WrappedComponent: React.ComponentType<P>,
-  options?: WithAuthOptions
+  options?: WithAuthOptions,
 ): React.ComponentType<P> {
   function ProtectedComponent(props: P) {
     const { loading, isAuthenticated, user } = useAuth();
@@ -26,8 +26,12 @@ export function withAuth<P extends object>(
       }
 
       if (!isAuthenticated) {
-        const nextPath = pathname ? `?next=${encodeURIComponent(pathname)}` : "";
-        const loginPath = `/login${nextPath}` as Parameters<typeof router.replace>[0];
+        const nextPath = pathname
+          ? `?next=${encodeURIComponent(pathname)}`
+          : "";
+        const loginPath = `/login${nextPath}` as Parameters<
+          typeof router.replace
+        >[0];
         router.replace(loginPath);
         return;
       }

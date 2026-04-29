@@ -1,4 +1,9 @@
-type EarnifyBadgeType = "Top Performer" | "Verified Creator" | "Viral Post" | "5-Campaign Pro" | "Early Adopter";
+type EarnifyBadgeType =
+  | "Top Performer"
+  | "Verified Creator"
+  | "Viral Post"
+  | "5-Campaign Pro"
+  | "Early Adopter";
 
 type BadgeSignals = {
   rank?: number;
@@ -27,37 +32,38 @@ const badgeMeta: Record<
     label: "Top Performer",
     icon: "TP",
     textColor: "text-[var(--color-primary)]",
-    background: "bg-[var(--color-primary)]/14 border border-[var(--color-primary)]/30",
-    glowColor: "shadow-[0_0_14px_-8px_rgba(245,158,11,0.9)]"
+    background:
+      "bg-[var(--color-primary)]/14 border border-[var(--color-primary)]/30",
+    glowColor: "shadow-[0_0_14px_-8px_rgba(245,158,11,0.9)]",
   },
   "Verified Creator": {
     label: "Verified Creator",
     icon: "VC",
     textColor: "text-zinc-100",
     background: "bg-zinc-700/30 border border-zinc-600",
-    glowColor: ""
+    glowColor: "",
   },
   "Viral Post": {
     label: "Viral Post",
     icon: "VP",
     textColor: "text-zinc-100",
     background: "bg-zinc-700/30 border border-zinc-600",
-    glowColor: ""
+    glowColor: "",
   },
   "5-Campaign Pro": {
     label: "5-Campaign Pro",
     icon: "5P",
     textColor: "text-zinc-100",
     background: "bg-zinc-700/30 border border-zinc-600",
-    glowColor: ""
+    glowColor: "",
   },
   "Early Adopter": {
     label: "Early Adopter",
     icon: "EA",
     textColor: "text-zinc-300",
     background: "bg-zinc-800/35 border border-zinc-700",
-    glowColor: ""
-  }
+    glowColor: "",
+  },
 };
 
 function resolveBadges(signals: BadgeSignals): EarnifyBadgeType[] {

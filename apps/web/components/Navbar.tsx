@@ -16,7 +16,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/", label: "Home" },
-  { href: "/dashboard", label: "Dashboard", requiresAuth: true }
+  { href: "/dashboard", label: "Dashboard", requiresAuth: true },
 ];
 
 function isActivePath(pathname: string, href: string) {
@@ -31,17 +31,23 @@ export function Navbar() {
 
   const visibleNav = useMemo(
     () => navItems.filter((item) => !item.requiresAuth || isAuthenticated),
-    [isAuthenticated]
+    [isAuthenticated],
   );
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-black/85 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" className="inline-flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2"
+          onClick={() => setMobileMenuOpen(false)}
+        >
           <span className="inline-flex h-8 w-8 items-center justify-center border border-zinc-700 bg-zinc-900 text-xs font-bold text-[var(--color-primary)]">
             EF
           </span>
-          <span className="text-lg font-semibold tracking-[0.08em] text-zinc-100">EARNIFY</span>
+          <span className="text-lg font-semibold tracking-[0.08em] text-zinc-100">
+            EARNIFY
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
@@ -91,7 +97,6 @@ export function Navbar() {
               Logout
             </button>
           )}
-
         </div>
 
         <button

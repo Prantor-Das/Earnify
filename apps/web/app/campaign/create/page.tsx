@@ -9,7 +9,8 @@ import type { ApiResponse } from "@earnify/shared";
 import { withAuth } from "../../../components/auth/withAuth";
 import { FundCampaignStep } from "../../../components/campaign/FundCampaignStep";
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+const apiBaseUrl =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,8 +58,8 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
                 isActive
                   ? "bg-[var(--color-primary)] text-white shadow-[0_0_15px_-3px_rgba(99,102,241,0.5)]"
                   : isDone
-                  ? "bg-[var(--color-success)]/20 text-[var(--color-success)] border border-[var(--color-success)]/40"
-                  : "bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted)]"
+                    ? "bg-[var(--color-success)]/20 text-[var(--color-success)] border border-[var(--color-success)]/40"
+                    : "bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted)]"
               }`}
             >
               {isDone ? "✓" : step}
@@ -66,7 +67,9 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
             {step < total && (
               <div
                 className={`h-0.5 w-8 transition-colors duration-300 ${
-                  isDone ? "bg-[var(--color-success)]" : "bg-[var(--color-border)]"
+                  isDone
+                    ? "bg-[var(--color-success)]"
+                    : "bg-[var(--color-border)]"
                 }`}
               />
             )}
@@ -77,7 +80,13 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
   );
 }
 
-const STEP_LABELS = ["Basic Info", "Platforms & Keywords", "Budget & Dates", "Review & Save", "Fund on Stellar"];
+const STEP_LABELS = [
+  "Basic Info",
+  "Platforms & Keywords",
+  "Budget & Dates",
+  "Review & Save",
+  "Fund on Stellar",
+];
 
 // ---------------------------------------------------------------------------
 // Field error helper
@@ -85,7 +94,11 @@ const STEP_LABELS = ["Basic Info", "Platforms & Keywords", "Budget & Dates", "Re
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <p className="mt-1.5 text-xs font-medium text-[var(--color-danger)]">{message}</p>;
+  return (
+    <p className="mt-1.5 text-xs font-medium text-[var(--color-danger)]">
+      {message}
+    </p>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -103,7 +116,10 @@ function Step1BasicInfo({ title, description, errors, onChange }: Step1Props) {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <label htmlFor="title" className="block text-sm font-semibold tracking-wide text-white">
+        <label
+          htmlFor="title"
+          className="block text-sm font-semibold tracking-wide text-white"
+        >
           Campaign Title <span className="text-[var(--color-danger)]">*</span>
         </label>
         <input
@@ -118,7 +134,10 @@ function Step1BasicInfo({ title, description, errors, onChange }: Step1Props) {
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="description" className="block text-sm font-semibold tracking-wide text-white">
+        <label
+          htmlFor="description"
+          className="block text-sm font-semibold tracking-wide text-white"
+        >
           Description <span className="text-[var(--color-danger)]">*</span>
         </label>
         <textarea
@@ -152,7 +171,7 @@ function Step2PlatformsKeywords({
   keywordsInput,
   errors,
   onTogglePlatform,
-  onKeywordsChange
+  onKeywordsChange,
 }: Step2Props) {
   return (
     <div className="space-y-8">
@@ -183,11 +202,16 @@ function Step2PlatformsKeywords({
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="keywords" className="block text-sm font-semibold tracking-wide text-white">
-          Required Keywords <span className="text-[var(--color-danger)]">*</span>
+        <label
+          htmlFor="keywords"
+          className="block text-sm font-semibold tracking-wide text-white"
+        >
+          Required Keywords{" "}
+          <span className="text-[var(--color-danger)]">*</span>
         </label>
         <p className="text-xs text-[var(--color-muted)] pb-1">
-          Comma-separated. Posts must include at least one of these keywords to qualify.
+          Comma-separated. Posts must include at least one of these keywords to
+          qualify.
         </p>
         <input
           id="keywords"
@@ -231,12 +255,22 @@ type Step3Props = {
   onChange: (field: "budget" | "startDate" | "endDate", value: string) => void;
 };
 
-function Step3BudgetDates({ budget, startDate, endDate, errors, onChange }: Step3Props) {
+function Step3BudgetDates({
+  budget,
+  startDate,
+  endDate,
+  errors,
+  onChange,
+}: Step3Props) {
   return (
     <div className="space-y-8">
       <div className="space-y-2">
-        <label htmlFor="budget" className="block text-sm font-semibold tracking-wide text-white">
-          Total Budget (XLM) <span className="text-[var(--color-danger)]">*</span>
+        <label
+          htmlFor="budget"
+          className="block text-sm font-semibold tracking-wide text-white"
+        >
+          Total Budget (XLM){" "}
+          <span className="text-[var(--color-danger)]">*</span>
         </label>
         <div className="relative">
           <input
@@ -258,8 +292,14 @@ function Step3BudgetDates({ budget, startDate, endDate, errors, onChange }: Step
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="space-y-2">
-          <label htmlFor="startDate" className="block text-sm font-semibold tracking-wide text-white">
-            Start Date <span className="text-[var(--color-muted)] text-xs font-normal ml-1">(optional)</span>
+          <label
+            htmlFor="startDate"
+            className="block text-sm font-semibold tracking-wide text-white"
+          >
+            Start Date{" "}
+            <span className="text-[var(--color-muted)] text-xs font-normal ml-1">
+              (optional)
+            </span>
           </label>
           <input
             id="startDate"
@@ -272,7 +312,10 @@ function Step3BudgetDates({ budget, startDate, endDate, errors, onChange }: Step
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="endDate" className="block text-sm font-semibold tracking-wide text-white">
+          <label
+            htmlFor="endDate"
+            className="block text-sm font-semibold tracking-wide text-white"
+          >
             End Date <span className="text-[var(--color-danger)]">*</span>
           </label>
           <input
@@ -287,8 +330,10 @@ function Step3BudgetDates({ budget, startDate, endDate, errors, onChange }: Step
       </div>
 
       <div className="rounded-xl border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 p-4 text-sm text-[var(--color-muted)]">
-        <strong className="text-white">Note:</strong> The campaign will be saved as a{" "}
-        <span className="font-bold text-[var(--color-primary)]">DRAFT</span>. You can fund it via Freighter after creation.
+        <strong className="text-white">Note:</strong> The campaign will be saved
+        as a{" "}
+        <span className="font-bold text-[var(--color-primary)]">DRAFT</span>.
+        You can fund it via Freighter after creation.
       </div>
     </div>
   );
@@ -321,15 +366,21 @@ function Step4Review({
   endDate,
   submitting,
   submitError,
-  onSubmit
+  onSubmit,
 }: Step4Props) {
   const rows: Array<{ label: string; value: string }> = [
     { label: "Title", value: title },
     { label: "Platforms", value: platforms.join(", ") || "—" },
     { label: "Keywords", value: keywords.join(", ") || "—" },
     { label: "Budget", value: budget ? `${budget} XLM` : "—" },
-    { label: "Start Date", value: startDate ? new Date(startDate).toLocaleString() : "Immediately" },
-    { label: "End Date", value: endDate ? new Date(endDate).toLocaleString() : "—" },
+    {
+      label: "Start Date",
+      value: startDate ? new Date(startDate).toLocaleString() : "Immediately",
+    },
+    {
+      label: "End Date",
+      value: endDate ? new Date(endDate).toLocaleString() : "—",
+    },
   ];
 
   return (
@@ -339,7 +390,9 @@ function Step4Review({
           <tbody className="divide-y divide-[var(--color-border)]">
             {rows.map(({ label, value }) => (
               <tr key={label}>
-                <td className="w-40 bg-[var(--color-surface)]/30 px-5 py-4 font-semibold text-white">{label}</td>
+                <td className="w-40 bg-[var(--color-surface)]/30 px-5 py-4 font-semibold text-white">
+                  {label}
+                </td>
                 <td className="px-5 py-4 text-[var(--color-muted)]">{value}</td>
               </tr>
             ))}
@@ -360,7 +413,10 @@ function Step4Review({
         </div>
       )}
 
-      <form onSubmit={onSubmit} className="pt-4 border-t border-[var(--color-border)]">
+      <form
+        onSubmit={onSubmit}
+        className="pt-4 border-t border-[var(--color-border)]"
+      >
         <button
           type="submit"
           disabled={submitting}
@@ -388,7 +444,7 @@ function FundedSuccessPanel({
   campaign,
   contractId,
   txHash,
-  onCreateAnother
+  onCreateAnother,
 }: {
   campaign: CampaignDraft;
   contractId: string;
@@ -405,13 +461,16 @@ function FundedSuccessPanel({
         <h3 className="text-xl font-bold text-white">Campaign is Live!</h3>
         <p className="text-[var(--color-muted)]">
           <strong className="text-white">{campaign.title}</strong> is now{" "}
-          <span className="font-bold text-[var(--color-success)]">ACTIVE</span> on Stellar testnet.
+          <span className="font-bold text-[var(--color-success)]">ACTIVE</span>{" "}
+          on Stellar testnet.
         </p>
       </div>
 
       <div className="rounded-xl border border-[var(--color-border)] bg-[#0D0F14] p-5 space-y-4 text-sm">
         <div className="flex flex-col gap-1">
-          <span className="font-semibold text-[var(--color-muted)] uppercase tracking-wider text-xs">Contract Address</span>
+          <span className="font-semibold text-[var(--color-muted)] uppercase tracking-wider text-xs">
+            Contract Address
+          </span>
           <a
             href={`https://stellar.expert/explorer/testnet/search?term=${encodeURIComponent(contractId)}`}
             target="_blank"
@@ -421,9 +480,11 @@ function FundedSuccessPanel({
             {contractId}
           </a>
         </div>
-        
+
         <div className="flex flex-col gap-1">
-          <span className="font-semibold text-[var(--color-muted)] uppercase tracking-wider text-xs">Funding Transaction</span>
+          <span className="font-semibold text-[var(--color-muted)] uppercase tracking-wider text-xs">
+            Funding Transaction
+          </span>
           <a
             href={`https://stellar.expert/explorer/testnet/search?term=${encodeURIComponent(txHash)}`}
             target="_blank"
@@ -433,9 +494,11 @@ function FundedSuccessPanel({
             {txHash}
           </a>
         </div>
-        
+
         <div className="flex flex-col gap-1">
-          <span className="font-semibold text-[var(--color-muted)] uppercase tracking-wider text-xs">Total Budget</span>
+          <span className="font-semibold text-[var(--color-muted)] uppercase tracking-wider text-xs">
+            Total Budget
+          </span>
           <span className="font-bold text-white text-lg">
             {campaign.budget} {campaign.budgetToken}
           </span>
@@ -482,9 +545,14 @@ function CreateCampaignPage() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [createdCampaign, setCreatedCampaign] = useState<CampaignDraft | null>(null);
+  const [createdCampaign, setCreatedCampaign] = useState<CampaignDraft | null>(
+    null,
+  );
   // Funding result — set when step 5 completes successfully
-  const [fundingResult, setFundingResult] = useState<{ contractId: string; txHash: string } | null>(null);
+  const [fundingResult, setFundingResult] = useState<{
+    contractId: string;
+    txHash: string;
+  } | null>(null);
 
   // Derived
   const keywords = keywordsInput
@@ -498,19 +566,24 @@ function CreateCampaignPage() {
 
     if (s === 1) {
       if (!title.trim()) errs.title = "Title is required";
-      else if (title.trim().length < 3) errs.title = "Title must be at least 3 characters";
+      else if (title.trim().length < 3)
+        errs.title = "Title must be at least 3 characters";
       if (!description.trim()) errs.description = "Description is required";
-      else if (description.trim().length < 10) errs.description = "Description must be at least 10 characters";
+      else if (description.trim().length < 10)
+        errs.description = "Description must be at least 10 characters";
     }
 
     if (s === 2) {
-      if (platforms.length === 0) errs.platforms = "Select at least one platform";
-      if (keywords.length === 0) errs.requiredKeywords = "Add at least one keyword";
+      if (platforms.length === 0)
+        errs.platforms = "Select at least one platform";
+      if (keywords.length === 0)
+        errs.requiredKeywords = "Add at least one keyword";
     }
 
     if (s === 3) {
       const budgetNum = Number(budget);
-      if (!budget || Number.isNaN(budgetNum) || budgetNum <= 0) errs.budget = "Budget must be a positive number";
+      if (!budget || Number.isNaN(budgetNum) || budgetNum <= 0)
+        errs.budget = "Budget must be a positive number";
       if (!endDate) {
         errs.endDate = "End date is required";
       } else {
@@ -548,7 +621,7 @@ function CreateCampaignPage() {
 
   function handleTogglePlatform(id: string) {
     setPlatforms((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     );
   }
 
@@ -569,11 +642,13 @@ function CreateCampaignPage() {
           platforms,
           requiredKeywords: keywords,
           startDate: startDate ? new Date(startDate).toISOString() : undefined,
-          endDate: new Date(endDate).toISOString()
-        })
+          endDate: new Date(endDate).toISOString(),
+        }),
       });
 
-      const payload = (await response.json()) as ApiResponse<CampaignDraft> & { errors?: FieldErrors };
+      const payload = (await response.json()) as ApiResponse<CampaignDraft> & {
+        errors?: FieldErrors;
+      };
 
       if (!response.ok || !payload.success || !payload.data) {
         // Surface per-field errors if the API returned them
@@ -581,8 +656,14 @@ function CreateCampaignPage() {
           setErrors(payload.errors);
           // Jump back to the first step that has an error
           if (payload.errors.title || payload.errors.description) setStep(1);
-          else if (payload.errors.platforms || payload.errors.requiredKeywords) setStep(2);
-          else if (payload.errors.budget || payload.errors.startDate || payload.errors.endDate) setStep(3);
+          else if (payload.errors.platforms || payload.errors.requiredKeywords)
+            setStep(2);
+          else if (
+            payload.errors.budget ||
+            payload.errors.startDate ||
+            payload.errors.endDate
+          )
+            setStep(3);
         } else {
           setSubmitError(payload.error ?? "Failed to create campaign");
         }
@@ -620,13 +701,18 @@ function CreateCampaignPage() {
         {/* ---- Main card ---- */}
         <article className="relative overflow-hidden rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)]/50 backdrop-blur-xl shadow-2xl">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)]"></div>
-          
+
           <div className="p-8 sm:p-12">
             <header className="space-y-3 mb-10">
-              <p className="text-sm font-semibold uppercase tracking-widest text-[var(--color-primary)]">Founder Console</p>
-              <h1 className="text-3xl font-bold text-white sm:text-4xl">Launch a Campaign</h1>
+              <p className="text-sm font-semibold uppercase tracking-widest text-[var(--color-primary)]">
+                Founder Console
+              </p>
+              <h1 className="text-3xl font-bold text-white sm:text-4xl">
+                Launch a Campaign
+              </h1>
               <p className="text-base text-[var(--color-muted)] max-w-2xl">
-                Design your marketing bounty. Campaign launch now requires funding via Freighter in the final step.
+                Design your marketing bounty. Campaign launch now requires
+                funding via Freighter in the final step.
               </p>
             </header>
 
@@ -635,7 +721,8 @@ function CreateCampaignPage() {
               <div className="mb-12 border-b border-[var(--color-border)]/50 pb-8">
                 <StepIndicator current={step} total={TOTAL_STEPS} />
                 <p className="mt-4 text-sm font-medium text-[var(--color-muted)] uppercase tracking-wider">
-                  Step {step} of {TOTAL_STEPS} — <span className="text-white">{STEP_LABELS[step - 1]}</span>
+                  Step {step} of {TOTAL_STEPS} —{" "}
+                  <span className="text-white">{STEP_LABELS[step - 1]}</span>
                 </p>
               </div>
             )}
@@ -726,7 +813,7 @@ function CreateCampaignPage() {
                       ) : (
                         <div></div> // Empty div for spacing
                       )}
-                      
+
                       <button
                         type="button"
                         onClick={handleNext}
@@ -758,25 +845,46 @@ function CreateCampaignPage() {
         <aside className="space-y-6">
           <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]/30 p-6 backdrop-blur">
             <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-[var(--color-primary)] mb-6">
-              <span className="h-2 w-2 rounded-full bg-[var(--color-primary)]"></span> Launch Checklist
+              <span className="h-2 w-2 rounded-full bg-[var(--color-primary)]"></span>{" "}
+              Launch Checklist
             </h2>
-            
+
             <ul className="space-y-4">
               <li className="relative pl-6 before:absolute before:left-0 before:top-2 before:h-1.5 before:w-1.5 before:rounded-full before:bg-[var(--color-secondary)]">
-                <p className="text-sm font-bold text-white mb-1">Step 1 — Basic Info</p>
-                <p className="text-xs text-[var(--color-muted)] leading-relaxed">Pick a short, creator-friendly title and describe the campaign clearly.</p>
+                <p className="text-sm font-bold text-white mb-1">
+                  Step 1 — Basic Info
+                </p>
+                <p className="text-xs text-[var(--color-muted)] leading-relaxed">
+                  Pick a short, creator-friendly title and describe the campaign
+                  clearly.
+                </p>
               </li>
               <li className="relative pl-6 before:absolute before:left-0 before:top-2 before:h-1.5 before:w-1.5 before:rounded-full before:bg-[var(--color-secondary)]">
-                <p className="text-sm font-bold text-white mb-1">Step 2 — Targeting</p>
-                <p className="text-xs text-[var(--color-muted)] leading-relaxed">Choose where creators should post and what hashtags or mentions to include.</p>
+                <p className="text-sm font-bold text-white mb-1">
+                  Step 2 — Targeting
+                </p>
+                <p className="text-xs text-[var(--color-muted)] leading-relaxed">
+                  Choose where creators should post and what hashtags or
+                  mentions to include.
+                </p>
               </li>
               <li className="relative pl-6 before:absolute before:left-0 before:top-2 before:h-1.5 before:w-1.5 before:rounded-full before:bg-[var(--color-secondary)]">
-                <p className="text-sm font-bold text-white mb-1">Step 3 — Parameters</p>
-                <p className="text-xs text-[var(--color-muted)] leading-relaxed">Set a realistic XLM budget and a clear end date for meaningful payouts.</p>
+                <p className="text-sm font-bold text-white mb-1">
+                  Step 3 — Parameters
+                </p>
+                <p className="text-xs text-[var(--color-muted)] leading-relaxed">
+                  Set a realistic XLM budget and a clear end date for meaningful
+                  payouts.
+                </p>
               </li>
               <li className="relative pl-6 before:absolute before:left-0 before:top-2 before:h-1.5 before:w-1.5 before:rounded-full before:bg-[var(--color-secondary)]">
-                <p className="text-sm font-bold text-white mb-1">Step 4 — Finalize</p>
-                <p className="text-xs text-[var(--color-muted)] leading-relaxed">Confirm everything looks right, save the draft, and prepare your wallet.</p>
+                <p className="text-sm font-bold text-white mb-1">
+                  Step 4 — Finalize
+                </p>
+                <p className="text-xs text-[var(--color-muted)] leading-relaxed">
+                  Confirm everything looks right, save the draft, and prepare
+                  your wallet.
+                </p>
               </li>
             </ul>
           </div>
@@ -786,7 +894,12 @@ function CreateCampaignPage() {
               <span className="text-[#10B981]">✦</span> About Freighter funding
             </h3>
             <p className="text-xs text-[var(--color-muted)] leading-relaxed">
-              After saving the draft, you'll be prompted to connect your Freighter wallet and sign a transaction that deploys and funds the Soroban contract. <strong className="text-white font-semibold">Your secret key never leaves your browser.</strong>
+              After saving the draft, you'll be prompted to connect your
+              Freighter wallet and sign a transaction that deploys and funds the
+              Soroban contract.{" "}
+              <strong className="text-white font-semibold">
+                Your secret key never leaves your browser.
+              </strong>
             </p>
           </div>
         </aside>

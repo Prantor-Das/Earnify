@@ -14,7 +14,8 @@ function computePostScore(input: {
   comments: number;
   authenticityScore?: number | null;
 }): number {
-  const engagementScore = input.views * 1 + input.likes * 3 + input.comments * 5 + input.shares * 7;
+  const engagementScore =
+    input.views * 1 + input.likes * 3 + input.comments * 5 + input.shares * 7;
   const authenticity = Math.max(0, input.authenticityScore ?? 0);
 
   // Ensure verified posts still receive score credit even when platform APIs
@@ -37,14 +38,14 @@ async function calculateScore(postId: string): Promise<number> {
         id: true,
         userId: true,
         campaignId: true,
-        authenticityScore: true
-      }
+        authenticityScore: true,
+      },
     }),
     prisma.postEngagement.findFirst({
       where: { postId },
       orderBy: { fetchedAt: "desc" },
-      select: { views: true, likes: true, shares: true, comments: true }
-    })
+      select: { views: true, likes: true, shares: true, comments: true },
+    }),
   ]);
 
   if (!post) {
@@ -56,7 +57,7 @@ async function calculateScore(postId: string): Promise<number> {
     likes: engagement?.likes ?? 0,
     shares: engagement?.shares ?? 0,
     comments: engagement?.comments ?? 0,
-    authenticityScore: post.authenticityScore
+    authenticityScore: post.authenticityScore,
   });
 
   // Persist per-post score
@@ -65,17 +66,17 @@ async function calculateScore(postId: string): Promise<number> {
       postId_userId_campaignId: {
         postId,
         userId: post.userId,
-        campaignId: post.campaignId
-      }
+        campaignId: post.campaignId,
+      },
     },
     update: { totalScore: postScore },
     create: {
       postId,
       userId: post.userId,
       campaignId: post.campaignId,
-      totalScore: postScore
+      totalScore: postScore,
     },
-    select: { id: true }
+    select: { id: true },
   });
 
   // Best-effort: push score to Soroban contract
@@ -83,19 +84,23 @@ async function calculateScore(postId: string): Promise<number> {
     const [campaign, user] = await Promise.all([
       prisma.campaign.findUnique({
         where: { id: post.campaignId },
-        select: { stellarContractId: true }
+        select: { stellarContractId: true },
       }),
       prisma.user.findUnique({
         where: { id: post.userId },
-        select: { walletAddress: true }
-      })
+        select: { walletAddress: true },
+      }),
     ]);
 
     if (campaign?.stellarContractId && user?.walletAddress) {
-      const scoreResult = await updateCreatorScore(campaign.stellarContractId, user.walletAddress, postScore);
+      const scoreResult = await updateCreatorScore(
+        campaign.stellarContractId,
+        user.walletAddress,
+        postScore,
+      );
       await prisma.score.update({
         where: { id: savedScore.id },
-        data: { scoreTxHash: scoreResult.txHash }
+        data: { scoreTxHash: scoreResult.txHash },
       });
     }
   } catch (error) {
@@ -103,14 +108,14 @@ async function calculateScore(postId: string): Promise<number> {
       postId,
       campaignId: post.campaignId,
       userId: post.userId,
-      error
+      error,
     });
   }
 
   // Aggregate this user's total score across all posts in the campaign
   const scoreAggregate = await prisma.score.aggregate({
     where: { campaignId: post.campaignId, userId: post.userId },
-    _sum: { totalScore: true }
+    _sum: { totalScore: true },
   });
 
   const userCampaignScore = scoreAggregate._sum.totalScore ?? 0;
@@ -120,8 +125,8 @@ async function calculateScore(postId: string): Promise<number> {
     where: {
       campaignId_userId: {
         campaignId: post.campaignId,
-        userId: post.userId
-      }
+        userId: post.userId,
+      },
     },
     update: { totalScore: userCampaignScore },
     create: {
@@ -129,8 +134,8 @@ async function calculateScore(postId: string): Promise<number> {
       userId: post.userId,
       totalScore: userCampaignScore,
       estimatedEarnings: 0,
-      rank: 0
-    }
+      rank: 0,
+    },
   });
 
   return postScore;

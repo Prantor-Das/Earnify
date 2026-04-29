@@ -19,7 +19,10 @@ function getPreviousRankKey(campaignId: string) {
   return `leaderboard:campaign:${campaignId}:prev-rank`;
 }
 
-function resolveRankChange(previousRank: string | null, currentRank: number): LeaderboardEntry["change"] {
+function resolveRankChange(
+  previousRank: string | null,
+  currentRank: number,
+): LeaderboardEntry["change"] {
   if (!previousRank) return "same";
   const parsed = Number(previousRank);
   if (Number.isNaN(parsed) || parsed === currentRank) return "same";
@@ -30,16 +33,19 @@ function resolveRankChange(previousRank: string | null, currentRank: number): Le
 // getLeaderboard — read from CampaignParticipant (DB source of truth)
 // ---------------------------------------------------------------------------
 
-async function getLeaderboard(campaignId: string, limit = 50): Promise<LeaderboardEntry[]> {
+async function getLeaderboard(
+  campaignId: string,
+  limit = 50,
+): Promise<LeaderboardEntry[]> {
   const participants = await prisma.campaignParticipant.findMany({
     where: { campaignId },
     orderBy: { totalScore: "desc" },
     take: limit,
     include: {
       user: {
-        select: { id: true, name: true, avatar: true }
-      }
-    }
+        select: { id: true, name: true, avatar: true },
+      },
+    },
   });
 
   if (participants.length === 0) return [];
@@ -50,7 +56,7 @@ async function getLeaderboard(campaignId: string, limit = 50): Promise<Leaderboa
   const postGroups = await prisma.post.groupBy({
     by: ["userId", "platform"],
     where: { campaignId, userId: { in: userIds }, status: "VERIFIED" },
-    _count: { _all: true }
+    _count: { _all: true },
   });
 
   // Pull latest verified TWITTER post engagement per post, then aggregate
@@ -61,8 +67,8 @@ async function getLeaderboard(campaignId: string, limit = 50): Promise<Leaderboa
         campaignId,
         userId: { in: userIds },
         status: "VERIFIED",
-        platform: "TWITTER"
-      }
+        platform: "TWITTER",
+      },
     },
     orderBy: { fetchedAt: "desc" },
     select: {
@@ -73,9 +79,9 @@ async function getLeaderboard(campaignId: string, limit = 50): Promise<Leaderboa
       comments: true,
       fetchedAt: true,
       post: {
-        select: { userId: true }
-      }
-    }
+        select: { userId: true },
+      },
+    },
   });
 
   const seenTwitterPostIds = new Set<string>();
@@ -101,7 +107,7 @@ async function getLeaderboard(campaignId: string, limit = 50): Promise<Leaderboa
       likes: 0,
       replies: 0,
       reposts: 0,
-      lastSyncedAt: null
+      lastSyncedAt: null,
     };
 
     current.views += row.views;
@@ -134,37 +140,44 @@ async function getLeaderboard(campaignId: string, limit = 50): Promise<Leaderboa
   // Fetch previous ranks for change indicators
   const previousRanks = await redis.hmget<Record<string, string | null>>(
     getPreviousRankKey(campaignId),
-    ...userIds
+    ...userIds,
   );
 
-  const leaderboard: LeaderboardEntry[] = participants.map((participant, index) => {
-    const rank = index + 1;
-    return {
-      rank,
-      userId: participant.userId,
-      userName: participant.user.name,
-      userAvatar: participant.user.avatar,
-      score: participant.totalScore,
-      postCount: postCountByUserId.get(participant.userId) ?? 0,
-      estimatedEarnings: participant.estimatedEarnings,
-      platforms: Array.from(platformsByUserId.get(participant.userId) ?? []),
-      lastUpdatedAt: participant.updatedAt.toISOString(),
-      change: resolveRankChange(previousRanks?.[participant.userId] ?? null, rank),
-      xStats: xStatsByUserId.get(participant.userId) ?? {
-        views: 0,
-        likes: 0,
-        replies: 0,
-        reposts: 0,
-        lastSyncedAt: null
-      }
-    };
-  });
+  const leaderboard: LeaderboardEntry[] = participants.map(
+    (participant, index) => {
+      const rank = index + 1;
+      return {
+        rank,
+        userId: participant.userId,
+        userName: participant.user.name,
+        userAvatar: participant.user.avatar,
+        score: participant.totalScore,
+        postCount: postCountByUserId.get(participant.userId) ?? 0,
+        estimatedEarnings: participant.estimatedEarnings,
+        platforms: Array.from(platformsByUserId.get(participant.userId) ?? []),
+        lastUpdatedAt: participant.updatedAt.toISOString(),
+        change: resolveRankChange(
+          previousRanks?.[participant.userId] ?? null,
+          rank,
+        ),
+        xStats: xStatsByUserId.get(participant.userId) ?? {
+          views: 0,
+          likes: 0,
+          replies: 0,
+          reposts: 0,
+          lastSyncedAt: null,
+        },
+      };
+    },
+  );
 
   // Persist current ranks for next comparison
   if (leaderboard.length > 0) {
     const pipeline = redis.pipeline();
     for (const entry of leaderboard) {
-      pipeline.hset(getPreviousRankKey(campaignId), { [entry.userId]: entry.rank.toString() });
+      pipeline.hset(getPreviousRankKey(campaignId), {
+        [entry.userId]: entry.rank.toString(),
+      });
     }
     pipeline.expire(getPreviousRankKey(campaignId), 60 * 60 * 24);
     await pipeline.exec();
@@ -180,7 +193,7 @@ async function getLeaderboard(campaignId: string, limit = 50): Promise<Leaderboa
 async function refreshLeaderboard(campaignId: string): Promise<void> {
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
-    select: { id: true, totalBudget: true }
+    select: { id: true, totalBudget: true },
   });
 
   if (!campaign) throw new Error(`Campaign not found: ${campaignId}`);
@@ -190,7 +203,13 @@ async function refreshLeaderboard(campaignId: string): Promise<void> {
   // Fetch all verified posts for this campaign
   const posts = await prisma.post.findMany({
     where: { campaignId, status: "VERIFIED" },
-    select: { id: true, userId: true, postUrl: true, platform: true, authenticityScore: true }
+    select: {
+      id: true,
+      userId: true,
+      postUrl: true,
+      platform: true,
+      authenticityScore: true,
+    },
   });
 
   // Re-fetch engagement and compute per-post scores
@@ -203,7 +222,7 @@ async function refreshLeaderboard(campaignId: string): Promise<void> {
       const engagement = await prisma.postEngagement.findFirst({
         where: { postId: post.id },
         orderBy: { fetchedAt: "desc" },
-        select: { views: true, likes: true, shares: true, comments: true }
+        select: { views: true, likes: true, shares: true, comments: true },
       });
 
       const postScore = computePostScore({
@@ -211,7 +230,7 @@ async function refreshLeaderboard(campaignId: string): Promise<void> {
         likes: engagement?.likes ?? 0,
         shares: engagement?.shares ?? 0,
         comments: engagement?.comments ?? 0,
-        authenticityScore: post.authenticityScore
+        authenticityScore: post.authenticityScore,
       });
 
       await prisma.score.upsert({
@@ -219,29 +238,35 @@ async function refreshLeaderboard(campaignId: string): Promise<void> {
           postId_userId_campaignId: {
             postId: post.id,
             userId: post.userId,
-            campaignId
-          }
+            campaignId,
+          },
         },
         update: { totalScore: postScore },
         create: {
           postId: post.id,
           userId: post.userId,
           campaignId,
-          totalScore: postScore
-        }
+          totalScore: postScore,
+        },
       });
 
       const current = userScores.get(post.userId) ?? 0;
       userScores.set(post.userId, current + postScore);
     } catch (error) {
-      console.error("refreshLeaderboard: failed to process post", { postId: post.id, error });
+      console.error("refreshLeaderboard: failed to process post", {
+        postId: post.id,
+        error,
+      });
     }
   }
 
   if (userScores.size === 0) return;
 
   // Normalise scores and compute estimated earnings
-  const totalScore = Array.from(userScores.values()).reduce((sum, s) => sum + s, 0);
+  const totalScore = Array.from(userScores.values()).reduce(
+    (sum, s) => sum + s,
+    0,
+  );
 
   // Sort users by score descending to assign ranks
   const ranked = Array.from(userScores.entries()).sort(([, a], [, b]) => b - a);
@@ -251,14 +276,21 @@ async function refreshLeaderboard(campaignId: string): Promise<void> {
     ranked.map(([userId, score], index) => {
       const rank = index + 1;
       const normalizedScore = totalScore > 0 ? (score / totalScore) * 100 : 0;
-      const estimatedEarnings = totalScore > 0 ? (score / totalScore) * campaignBudget : 0;
+      const estimatedEarnings =
+        totalScore > 0 ? (score / totalScore) * campaignBudget : 0;
 
       return prisma.campaignParticipant.upsert({
         where: { campaignId_userId: { campaignId, userId } },
         update: { totalScore: score, estimatedEarnings, rank },
-        create: { campaignId, userId, totalScore: score, estimatedEarnings, rank }
+        create: {
+          campaignId,
+          userId,
+          totalScore: score,
+          estimatedEarnings,
+          rank,
+        },
       });
-    })
+    }),
   );
 
   // Also sync Redis sorted set for any legacy callers
@@ -277,7 +309,10 @@ async function updateScore(campaignId: string, userId: string, score: number) {
   await redis.zadd(getLeaderboardKey(campaignId), { score, member: userId });
 }
 
-async function getTopN(campaignId: string, n = 10): Promise<LeaderboardEntry[]> {
+async function getTopN(
+  campaignId: string,
+  n = 10,
+): Promise<LeaderboardEntry[]> {
   return getLeaderboard(campaignId, n);
 }
 
@@ -291,4 +326,11 @@ async function getUserScore(campaignId: string, userId: string) {
   return Number(score);
 }
 
-export { getLeaderboard, getTopN, getUserRank, getUserScore, refreshLeaderboard, updateScore };
+export {
+  getLeaderboard,
+  getTopN,
+  getUserRank,
+  getUserScore,
+  refreshLeaderboard,
+  updateScore,
+};

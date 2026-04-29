@@ -3,14 +3,14 @@ services:
     name: earnify-api
     runtime: node
     plan: free
-    
+
     buildCommand: >
       pnpm install &&
       pnpm --filter @earnify/db db:generate &&
       pnpm build
-    
+
     startCommand: pnpm --filter @earnify/api start
-    
+
     envVars:
       - key: NODE_ENV
         value: production
@@ -21,7 +21,7 @@ services:
           name: earnify-db
           property: connectionString
       - key: STELLAR_ADMIN_SECRET
-        sync: false  # Set manually in Render dashboard
+        sync: false # Set manually in Render dashboard
       - key: STELLAR_NETWORK
         value: testnet
       - key: SOROBAN_RPC_HOST
@@ -32,7 +32,7 @@ services:
   - type: postgres
     name: earnify-db
     plan: free
-    
+
     # Database auto-configured
     # Note: Use external Neon DB instead if you prefer managed postgres
     # Uncomment above and remove this section, then set DATABASE_URL manually

@@ -3,7 +3,7 @@ import type { SocialPlatform } from "@earnify/shared";
 const iconLabel: Record<SocialPlatform, { short: string; full: string }> = {
   TWITTER: { short: "X", full: "Twitter / X" },
   LINKEDIN: { short: "in", full: "LinkedIn" },
-  INSTAGRAM: { short: "IG", full: "Instagram" }
+  INSTAGRAM: { short: "IG", full: "Instagram" },
 };
 
 export function PlatformIcon({ platform }: { platform: SocialPlatform }) {

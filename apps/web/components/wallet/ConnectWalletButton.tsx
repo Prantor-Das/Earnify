@@ -17,7 +17,7 @@ export function ConnectWalletButton() {
     isConnecting,
     connectError,
     connectWallet,
-    disconnectWallet
+    disconnectWallet,
   } = useWallet();
 
   const [showDisconnect, setShowDisconnect] = useState(false);
@@ -72,7 +72,9 @@ export function ConnectWalletButton() {
               className="absolute right-0 top-full z-50 mt-2 min-w-[180px] overflow-hidden rounded-xl border border-[var(--color-border)]/50 bg-[#0D0F14]/90 p-1.5 shadow-2xl backdrop-blur-xl"
               role="menu"
             >
-              <p className="px-3 py-2 text-[11px] text-[var(--color-muted)] break-all font-mono">{walletAddress}</p>
+              <p className="px-3 py-2 text-[11px] text-[var(--color-muted)] break-all font-mono">
+                {walletAddress}
+              </p>
               <div className="my-1 h-px w-full bg-[var(--color-border)]/30" />
               <button
                 type="button"
@@ -97,7 +99,9 @@ export function ConnectWalletButton() {
     <div className="flex flex-col items-end gap-1.5">
       <button
         type="button"
-        onClick={() => { void connectWallet(); }}
+        onClick={() => {
+          void connectWallet();
+        }}
         disabled={isConnecting}
         className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)] px-5 py-2 text-xs font-bold text-white shadow-[0_0_15px_-3px_rgba(99,102,241,0.4)] backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_0_20px_-3px_rgba(99,102,241,0.6)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
       >
@@ -120,7 +124,9 @@ export function ConnectWalletButton() {
         )}
       </button>
       {connectError && (
-        <p className="text-[11px] font-medium text-[var(--color-danger)]">{connectError}</p>
+        <p className="text-[11px] font-medium text-[var(--color-danger)]">
+          {connectError}
+        </p>
       )}
     </div>
   );

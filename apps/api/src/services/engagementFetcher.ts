@@ -51,10 +51,15 @@ function extractInstagramShortcode(postUrl: string): string {
 // Platform fetchers
 // ---------------------------------------------------------------------------
 
-async function fetchTwitterEngagement(postUrl: string, postExternalId?: string | null): Promise<EngagementData> {
+async function fetchTwitterEngagement(
+  postUrl: string,
+  postExternalId?: string | null,
+): Promise<EngagementData> {
   const bearerToken = process.env.TWITTER_BEARER_TOKEN;
   if (!bearerToken) {
-    throw new Error("TWITTER_BEARER_TOKEN is not configured. Cannot fetch real Twitter engagement data.");
+    throw new Error(
+      "TWITTER_BEARER_TOKEN is not configured. Cannot fetch real Twitter engagement data.",
+    );
   }
 
   const tweetId = postExternalId ?? extractTwitterId(postUrl);
@@ -71,7 +76,7 @@ async function fetchTwitterEngagement(postUrl: string, postExternalId?: string |
     };
   }>(`https://api.twitter.com/2/tweets/${tweetId}`, {
     params: { "tweet.fields": "public_metrics" },
-    headers: { Authorization: `Bearer ${bearerToken}` }
+    headers: { Authorization: `Bearer ${bearerToken}` },
   });
 
   const metrics = response.data.data.public_metrics;
@@ -80,17 +85,22 @@ async function fetchTwitterEngagement(postUrl: string, postExternalId?: string |
     likes: metrics.like_count,
     // shares = retweets + quotes
     shares: metrics.retweet_count + metrics.quote_count,
-    comments: metrics.reply_count
+    comments: metrics.reply_count,
   };
 }
 
-async function fetchInstagramEngagement(postUrl: string): Promise<EngagementData> {
+async function fetchInstagramEngagement(
+  postUrl: string,
+): Promise<EngagementData> {
   // Instagram oEmbed gives us like_count and comments_count for public posts.
   // The Basic Display API / Graph API is needed for full metrics (impressions).
   // We use oEmbed as a baseline; views default to 0 when not available.
   const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
 
-  const params: Record<string, string> = { url: postUrl, fields: "like_count,comments_count" };
+  const params: Record<string, string> = {
+    url: postUrl,
+    fields: "like_count,comments_count",
+  };
   if (accessToken) {
     params.access_token = accessToken;
   }
@@ -105,18 +115,22 @@ async function fetchInstagramEngagement(postUrl: string): Promise<EngagementData
       views: 0, // oEmbed does not expose impression counts
       likes: response.data.like_count ?? 0,
       shares: 0, // Instagram does not expose share counts publicly
-      comments: response.data.comments_count ?? 0
+      comments: response.data.comments_count ?? 0,
     };
   } catch (error) {
     // oEmbed may return 400 for private/deleted posts — surface a clear error
     const message = axios.isAxiosError(error)
       ? `Instagram oEmbed request failed (${error.response?.status ?? "network error"}): ${JSON.stringify(error.response?.data)}`
       : String(error);
-    throw new Error(`Cannot fetch Instagram engagement for ${postUrl}: ${message}`);
+    throw new Error(
+      `Cannot fetch Instagram engagement for ${postUrl}: ${message}`,
+    );
   }
 }
 
-async function fetchLinkedInEngagement(postUrl: string): Promise<EngagementData> {
+async function fetchLinkedInEngagement(
+  postUrl: string,
+): Promise<EngagementData> {
   // LinkedIn's public oEmbed endpoint does not expose engagement metrics.
   // The official Share Statistics API requires OAuth and is only available to
   // LinkedIn Marketing Developer Program partners.
@@ -127,7 +141,7 @@ async function fetchLinkedInEngagement(postUrl: string): Promise<EngagementData>
   // credentials are provisioned.
   try {
     await axios.get("https://www.linkedin.com/oembed", {
-      params: { url: postUrl, format: "json" }
+      params: { url: postUrl, format: "json" },
     });
   } catch (error) {
     const message = axios.isAxiosError(error)
@@ -144,33 +158,41 @@ async function fetchLinkedInEngagement(postUrl: string): Promise<EngagementData>
 // Core fetch + persist
 // ---------------------------------------------------------------------------
 
-async function resolvePost(postUrl: string, platform: Platform, postId?: string) {
+async function resolvePost(
+  postUrl: string,
+  platform: Platform,
+  postId?: string,
+) {
   if (postId) {
     return prisma.post.findUnique({
       where: { id: postId },
-      select: { id: true, postUrl: true, platform: true, postExternalId: true }
+      select: { id: true, postUrl: true, platform: true, postExternalId: true },
     });
   }
 
   return prisma.post.findFirst({
     where: { postUrl, platform },
-    select: { id: true, postUrl: true, platform: true, postExternalId: true }
+    select: { id: true, postUrl: true, platform: true, postExternalId: true },
   });
 }
 
 async function persistEngagement(postId: string, engagement: EngagementData) {
   await Promise.all([
     prisma.postEngagement.create({
-      data: { postId, ...engagement }
+      data: { postId, ...engagement },
     }),
     prisma.post.update({
       where: { id: postId },
-      data: { lastFetchedAt: new Date() }
-    })
+      data: { lastFetchedAt: new Date() },
+    }),
   ]);
 }
 
-async function fetchEngagement(postUrl: string, platform: Platform, options: FetchOptions = {}): Promise<EngagementData> {
+async function fetchEngagement(
+  postUrl: string,
+  platform: Platform,
+  options: FetchOptions = {},
+): Promise<EngagementData> {
   const post = await resolvePost(postUrl, platform, options.postId);
 
   let engagement: EngagementData;

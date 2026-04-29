@@ -23,16 +23,21 @@ function parseAiJson(content: string): AiDetectionResult {
 
   const authenticityScore = Number(parsed.authenticityScore);
   const isSpam = Boolean(parsed.isSpam);
-  const reason = typeof parsed.reason === "string" ? parsed.reason : "No reason provided";
+  const reason =
+    typeof parsed.reason === "string" ? parsed.reason : "No reason provided";
 
-  if (!Number.isFinite(authenticityScore) || authenticityScore < 0 || authenticityScore > 1) {
+  if (
+    !Number.isFinite(authenticityScore) ||
+    authenticityScore < 0 ||
+    authenticityScore > 1
+  ) {
     throw new Error("Invalid authenticity score in AI response");
   }
 
   return {
     authenticityScore,
     isSpam,
-    reason
+    reason,
   };
 }
 
@@ -46,14 +51,14 @@ async function runAiDetection(postContent: string): Promise<AiDetectionResult> {
     messages: [
       {
         role: "system",
-        content: AI_SYSTEM_PROMPT
+        content: AI_SYSTEM_PROMPT,
       },
       {
         role: "user",
-        content: postContent.slice(0, 7000)
-      }
+        content: postContent.slice(0, 7000),
+      },
     ],
-    temperature: 0
+    temperature: 0,
   });
 
   const content = response.choices[0]?.message?.content;

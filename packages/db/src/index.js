@@ -9,14 +9,16 @@ const __dirname = path.dirname(__filename);
 loadEnv({ path: path.resolve(__dirname, "../../../.env") });
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required. Set it to your Neon Postgres connection string.");
+  throw new Error(
+    "DATABASE_URL is required. Set it to your Neon Postgres connection string.",
+  );
 }
 const pool = new Pool({
-    connectionString: databaseUrl
+  connectionString: databaseUrl,
 });
 const adapter = new PrismaPg(pool);
 export const prisma = globalThis.prismaGlobal ?? new PrismaClient({ adapter });
 if (process.env.NODE_ENV !== "production") {
-    globalThis.prismaGlobal = prisma;
+  globalThis.prismaGlobal = prisma;
 }
 export * from "@prisma/client";

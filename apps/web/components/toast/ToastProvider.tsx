@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 
 type ToastType = "success" | "error" | "info" | "warning";
 
@@ -24,31 +30,39 @@ function getToastStyle(type: ToastType) {
   if (type === "success") {
     return {
       color: "var(--color-success)",
-      borderColor: "color-mix(in srgb, var(--color-success) 40%, var(--color-border))",
-      backgroundColor: "color-mix(in srgb, var(--color-success) 14%, var(--color-surface))"
+      borderColor:
+        "color-mix(in srgb, var(--color-success) 40%, var(--color-border))",
+      backgroundColor:
+        "color-mix(in srgb, var(--color-success) 14%, var(--color-surface))",
     };
   }
 
   if (type === "error") {
     return {
       color: "var(--color-danger)",
-      borderColor: "color-mix(in srgb, var(--color-danger) 40%, var(--color-border))",
-      backgroundColor: "color-mix(in srgb, var(--color-danger) 14%, var(--color-surface))"
+      borderColor:
+        "color-mix(in srgb, var(--color-danger) 40%, var(--color-border))",
+      backgroundColor:
+        "color-mix(in srgb, var(--color-danger) 14%, var(--color-surface))",
     };
   }
 
   if (type === "warning") {
     return {
       color: "var(--color-accent)",
-      borderColor: "color-mix(in srgb, var(--color-accent) 42%, var(--color-border))",
-      backgroundColor: "color-mix(in srgb, var(--color-accent) 15%, var(--color-surface))"
+      borderColor:
+        "color-mix(in srgb, var(--color-accent) 42%, var(--color-border))",
+      backgroundColor:
+        "color-mix(in srgb, var(--color-accent) 15%, var(--color-surface))",
     };
   }
 
   return {
     color: "var(--color-secondary)",
-    borderColor: "color-mix(in srgb, var(--color-secondary) 36%, var(--color-border))",
-    backgroundColor: "color-mix(in srgb, var(--color-secondary) 13%, var(--color-surface))"
+    borderColor:
+      "color-mix(in srgb, var(--color-secondary) 36%, var(--color-border))",
+    backgroundColor:
+      "color-mix(in srgb, var(--color-secondary) 13%, var(--color-surface))",
   };
 }
 
@@ -58,13 +72,15 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
   const pushToast = useCallback((input: ToastInput) => {
     const nextToast: ToastEntry = {
       ...input,
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     };
 
     setToasts((previous) => [nextToast, ...previous].slice(0, 6));
 
     window.setTimeout(() => {
-      setToasts((previous) => previous.filter((toast) => toast.id !== nextToast.id));
+      setToasts((previous) =>
+        previous.filter((toast) => toast.id !== nextToast.id),
+      );
     }, 4000);
   }, []);
 
@@ -81,7 +97,9 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
             style={getToastStyle(toast.type)}
           >
             <p className="text-sm font-semibold">{toast.title}</p>
-            {toast.message ? <p className="mt-1 text-xs text-muted">{toast.message}</p> : null}
+            {toast.message ? (
+              <p className="mt-1 text-xs text-muted">{toast.message}</p>
+            ) : null}
           </article>
         ))}
       </div>

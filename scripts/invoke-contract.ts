@@ -2,9 +2,12 @@ import "dotenv/config";
 
 import * as StellarSdk from "@stellar/stellar-sdk";
 
-const rpcUrl = process.env.STELLAR_SOROBAN_RPC_URL ?? "https://soroban-testnet.stellar.org";
-const horizonUrl = process.env.STELLAR_HORIZON_URL ?? "https://horizon-testnet.stellar.org";
-const networkPassphrase = process.env.STELLAR_NETWORK_PASSPHRASE ?? StellarSdk.Networks.TESTNET;
+const rpcUrl =
+  process.env.STELLAR_SOROBAN_RPC_URL ?? "https://soroban-testnet.stellar.org";
+const horizonUrl =
+  process.env.STELLAR_HORIZON_URL ?? "https://horizon-testnet.stellar.org";
+const networkPassphrase =
+  process.env.STELLAR_NETWORK_PASSPHRASE ?? StellarSdk.Networks.TESTNET;
 
 const contractId = process.argv[2] ?? process.env.SOROBAN_CONTRACT_ID;
 const method = process.argv[3];
@@ -12,7 +15,9 @@ const secret = process.argv[4] ?? process.env.STELLAR_ADMIN_SECRET;
 const rawArgs = process.argv[5] ?? "[]";
 
 if (!contractId || !method || !secret) {
-  console.error("Usage: ts-node scripts/invoke-contract.ts <contractId> <method> <secret> '[\"arg1\",123]' ");
+  console.error(
+    "Usage: ts-node scripts/invoke-contract.ts <contractId> <method> <secret> '[\"arg1\",123]' ",
+  );
   process.exit(1);
 }
 
@@ -25,11 +30,13 @@ const sdk = StellarSdk as unknown as {
     };
     assembleTransaction: (tx: any, simulation: unknown) => any;
   };
-  Contract: new (contractId: string) => { call: (method: string, ...args: unknown[]) => any };
+  Contract: new (contractId: string) => {
+    call: (method: string, ...args: unknown[]) => any;
+  };
   Keypair: { fromSecret: (secret: string) => any };
   TransactionBuilder: new (
     source: any,
-    opts: { fee: string; networkPassphrase: string }
+    opts: { fee: string; networkPassphrase: string },
   ) => {
     addOperation: (op: any) => any;
     setTimeout: (seconds: number) => any;
@@ -68,13 +75,15 @@ function toScVal(value: unknown) {
 async function main() {
   const keypair = sdk.Keypair.fromSecret(secret);
   const horizon = new sdk.Horizon.Server(horizonUrl);
-  const rpc = new sdk.SorobanRpc.Server(rpcUrl, { allowHttp: rpcUrl.startsWith("http://") });
+  const rpc = new sdk.SorobanRpc.Server(rpcUrl, {
+    allowHttp: rpcUrl.startsWith("http://"),
+  });
   const account = await horizon.loadAccount(keypair.publicKey());
   const contract = new sdk.Contract(contractId);
 
   const tx = new sdk.TransactionBuilder(account, {
     fee: "1000000",
-    networkPassphrase
+    networkPassphrase,
   })
     .addOperation(contract.call(method, ...args.map(toScVal)))
     .setTimeout(30)
@@ -99,7 +108,9 @@ async function main() {
   while (Date.now() - started < 30_000) {
     const txResult = await rpc.getTransaction(txHash);
     if (txResult.status === "SUCCESS") {
-      const returnValue = txResult.returnValue ? sdk.scValToNative(txResult.returnValue) : null;
+      const returnValue = txResult.returnValue
+        ? sdk.scValToNative(txResult.returnValue)
+        : null;
       console.log(JSON.stringify({ txHash, returnValue }, null, 2));
       return;
     }

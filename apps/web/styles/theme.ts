@@ -8,11 +8,11 @@ export const theme = {
     muted: "#A3A3A3",
     background: "#080808", // Neutral black
     surface: "#141414", // Elevated neutral surface
-    border: "#2B2B2B" // Neutral border
+    border: "#2B2B2B", // Neutral border
   },
   typography: {
     fonts: {
-      sans: "\"Manrope\", \"Space Grotesk\", \"Segoe UI\", sans-serif"
+      sans: '"Manrope", "Space Grotesk", "Segoe UI", sans-serif',
     },
     fontSizes: {
       xs: "0.75rem",
@@ -20,14 +20,14 @@ export const theme = {
       md: "1rem",
       lg: "1.125rem",
       xl: "1.5rem",
-      "2xl": "2rem"
+      "2xl": "2rem",
     },
     fontWeights: {
       regular: 400,
       medium: 500,
       semibold: 600,
-      bold: 700
-    }
+      bold: 700,
+    },
   },
   spacing: {
     0: "0rem",
@@ -40,25 +40,29 @@ export const theme = {
     8: "2rem",
     10: "2.5rem",
     12: "3rem",
-    16: "4rem"
+    16: "4rem",
   },
   borderRadius: {
     sm: "0.375rem",
     md: "0.75rem",
     lg: "1.25rem",
-    full: "9999px"
+    full: "9999px",
   },
   breakpoints: {
     sm: 640,
     md: 768,
     lg: 1024,
-    xl: 1280
-  }
+    xl: 1280,
+  },
 } as const;
 
 type FlatTokenMap = Record<string, string | number>;
 
-function flattenTokens(prefix: string, value: Record<string, unknown>, target: FlatTokenMap) {
+function flattenTokens(
+  prefix: string,
+  value: Record<string, unknown>,
+  target: FlatTokenMap,
+) {
   for (const [key, nestedValue] of Object.entries(value)) {
     const tokenName = prefix ? `${prefix}-${key}` : key;
 
@@ -124,7 +128,7 @@ export function getTailwindThemeCss() {
     `  --breakpoint-md: ${theme.breakpoints.md}px;`,
     `  --breakpoint-lg: ${theme.breakpoints.lg}px;`,
     `  --breakpoint-xl: ${theme.breakpoints.xl}px;`,
-    "}"
+    "}",
   ].join("\n");
 }
 
