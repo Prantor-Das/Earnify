@@ -15,6 +15,7 @@ import {
   deployCampaignContract,
   getCampaignInfo,
   getContractBalance,
+  SorobanConfigError,
   verifyCampaignFunded,
 } from "../services/sorobanClient.ts";
 import { executeCampaignPayouts } from "../services/payoutService.ts";
@@ -907,9 +908,18 @@ campaignsRouter.post(
         xdr: result.xdr,
         networkPassphrase: result.networkPassphrase,
         campaignWalletAddress,
+        deploymentTxHash: result.deploymentTxHash,
+        deploymentTxUrl: getTxUrl(result.deploymentTxHash),
+        wasmUploadTxHash: result.wasmUploadTxHash,
+        wasmUploadTxUrl: getTxUrl(result.wasmUploadTxHash),
       });
     } catch (error) {
       console.error("deploy-contract failed", error);
+      if (error instanceof SorobanConfigError) {
+        sendError(response, error.message, error.status, error.code);
+        return;
+      }
+
       sendError(
         response,
         error instanceof Error ? error.message : "Contract deployment failed",

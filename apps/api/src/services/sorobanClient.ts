@@ -1,7 +1,6 @@
-import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
-import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 import * as StellarSdk from "@stellar/stellar-sdk";
@@ -11,9 +10,6 @@ type TxResult = {
   result: unknown;
 };
 
-const execFileAsync = promisify(execFile);
-
-const networkName = process.env.STELLAR_NETWORK ?? "testnet";
 const horizonUrl =
   process.env.STELLAR_HORIZON_URL ?? "https://horizon-testnet.stellar.org";
 const sorobanRpcUrl =
@@ -28,6 +24,11 @@ const configuredWasmPath =
 const serviceDir = dirname(fileURLToPath(import.meta.url));
 const repoRootDir = resolve(serviceDir, "../../../../");
 const contractDir = join(repoRootDir, "contracts/earnify-campaign");
+
+class SorobanConfigError extends Error {
+  readonly status = 503;
+  readonly code = "SOROBAN_CONFIG_ERROR";
+}
 
 function normalizeCandidatePath(pathValue: string) {
   if (isAbsolute(pathValue)) {
@@ -74,29 +75,8 @@ async function ensureContractWasmPath() {
     }
   }
 
-  // Build + optimize contract if artifact is missing.
-  await execFileAsync("stellar", ["contract", "build"], { cwd: contractDir });
-
-  const builtWasm = join(
-    contractDir,
-    "target/wasm32v1-none/release/earnify_campaign.wasm",
-  );
-  if (existsSync(builtWasm)) {
-    await execFileAsync(
-      "stellar",
-      ["contract", "optimize", "--wasm", builtWasm],
-      { cwd: repoRootDir },
-    );
-  }
-
-  for (const candidate of getWasmCandidates()) {
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  throw new Error(
-    "Soroban contract WASM not found after build. Set SOROBAN_WASM_PATH or run stellar contract build/optimize.",
+  throw new SorobanConfigError(
+    "Soroban contract WASM was not found on the API server. Build the contract during deployment or set SOROBAN_WASM_PATH to a bundled .wasm file.",
   );
 }
 
@@ -128,11 +108,23 @@ const sdk = StellarSdk as unknown as {
   Asset: { native: () => unknown };
   Keypair: { fromSecret: (secret: string) => any };
   Operation: {
+    createCustomContract: (input: {
+      wasmHash: Buffer;
+      address: { toScAddress: () => unknown };
+      salt: Buffer;
+      constructorArgs?: unknown[];
+      source?: string;
+    }) => any;
     payment: (input: {
       destination: string;
       asset: unknown;
       amount: string;
     }) => any;
+    uploadContractWasm: (input: { wasm: Buffer; source?: string }) => any;
+  };
+  Address: {
+    fromScVal: (value: any) => { toString: () => string };
+    fromString: (address: string) => { toScAddress: () => unknown };
   };
   TransactionBuilder: new (
     source: any,
@@ -164,7 +156,7 @@ const sorobanRpc = new rpcNs.Server(sorobanRpcUrl, {
 
 function requireAdminSecret() {
   if (!adminSecret) {
-    throw new Error("STELLAR_ADMIN_SECRET is not configured");
+    throw new SorobanConfigError("STELLAR_ADMIN_SECRET is not configured");
   }
 
   return adminSecret;
@@ -177,24 +169,6 @@ function toStroops(amountXLM: number): bigint {
 function fromStroops(value: bigint | number | string): number {
   const stroops = typeof value === "bigint" ? value : BigInt(value);
   return Number(stroops) / 10_000_000;
-}
-
-function parseContractId(stdout: string): string {
-  const lines = stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const candidates = lines.reverse();
-  const contractId = candidates.find((line) => /^C[A-Z0-9]{55}$/.test(line));
-
-  if (!contractId) {
-    throw new Error(
-      "Unable to parse deployed contract id from stellar CLI output",
-    );
-  }
-
-  return contractId;
 }
 
 async function withSorobanInvocation(params: {
@@ -388,6 +362,114 @@ async function submitClassicPayment(
   return result.hash as string;
 }
 
+async function submitSorobanOperation(params: {
+  sourceSecret: string;
+  operation: any;
+  timeoutSeconds?: number;
+}) {
+  const sourceKeypair = sdk.Keypair.fromSecret(params.sourceSecret);
+  const sourceAccount = await horizon.loadAccount(sourceKeypair.publicKey());
+
+  const tx = new sdk.TransactionBuilder(sourceAccount, {
+    fee: "1000000",
+    networkPassphrase,
+  })
+    .addOperation(params.operation)
+    .setTimeout(params.timeoutSeconds ?? 60)
+    .build();
+
+  const simulation = await sorobanRpc.simulateTransaction(tx);
+  if (rpcNs.Api.isSimulationError(simulation)) {
+    throw new Error(JSON.stringify(simulation, null, 2).slice(0, 500));
+  }
+
+  const returnValue = (simulation as { result?: { retval?: unknown } }).result
+    ?.retval;
+  const assembled = rpcNs.assembleTransaction(tx, simulation).build();
+  assembled.sign(sourceKeypair);
+
+  const submission = await sorobanRpc.sendTransaction(assembled);
+  const txHash = submission.hash as string;
+
+  if (!txHash) {
+    throw new Error("Soroban transaction submission did not return a hash");
+  }
+
+  const started = Date.now();
+  while (Date.now() - started < 30_000) {
+    let status: { status: string; [key: string]: unknown };
+    try {
+      status = await sorobanRpc.getTransaction(txHash);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("Bad union switch")
+      ) {
+        return {
+          txHash,
+          returnValue,
+          result: { status: "UNKNOWN_PARSER_FALLBACK" },
+        };
+      }
+
+      throw error;
+    }
+
+    if (status.status === "SUCCESS") {
+      return {
+        txHash,
+        returnValue,
+        result: status,
+      };
+    }
+
+    if (status.status === "FAILED") {
+      throw new Error(
+        `Soroban transaction failed with status ${status.status}`,
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+  }
+
+  throw new Error("Timed out waiting for Soroban transaction confirmation");
+}
+
+async function deployContractWithSdk(admin: string, wasmPath: string) {
+  const wasm = readFileSync(wasmPath);
+  const wasmHash = createHash("sha256").update(wasm).digest();
+  const adminPublicKey = sdk.Keypair.fromSecret(admin).publicKey();
+  const adminAddress = sdk.Address.fromString(adminPublicKey);
+
+  const upload = await submitSorobanOperation({
+    sourceSecret: admin,
+    operation: sdk.Operation.uploadContractWasm({
+      wasm,
+      source: adminPublicKey,
+    }),
+  });
+
+  const deployment = await submitSorobanOperation({
+    sourceSecret: admin,
+    operation: sdk.Operation.createCustomContract({
+      wasmHash,
+      address: adminAddress,
+      salt: randomBytes(32),
+      source: adminPublicKey,
+    }),
+  });
+
+  if (!deployment.returnValue) {
+    throw new Error("Contract deployment did not return a contract address");
+  }
+
+  return {
+    contractId: sdk.Address.fromScVal(deployment.returnValue).toString(),
+    deploymentTxHash: deployment.txHash,
+    uploadTxHash: upload.txHash,
+  };
+}
+
 async function deployCampaignContract(
   founderSecret: string,
   totalBudgetXLM: number,
@@ -399,21 +481,7 @@ async function deployCampaignContract(
   const admin = requireAdminSecret();
   await fundAdminIfNeeded(admin);
   const resolvedWasmPath = await ensureContractWasmPath();
-
-  const { stdout } = await execFileAsync("stellar", [
-    "contract",
-    "deploy",
-    "--wasm",
-    resolvedWasmPath,
-    "--rpc-url",
-    sorobanRpcUrl,
-    "--source",
-    admin,
-    "--network",
-    networkName,
-  ]);
-
-  const contractId = parseContractId(stdout);
+  const { contractId } = await deployContractWithSdk(admin, resolvedWasmPath);
   const founderKeypair = sdk.Keypair.fromSecret(founderSecret);
   const adminPublicKey = sdk.Keypair.fromSecret(admin).publicKey();
 
@@ -627,7 +695,13 @@ async function buildInitializeTx(params: {
   founderPublicKey: string;
   totalBudgetXLM: number;
   existingContractId?: string;
-}): Promise<{ contractId: string; xdr: string; networkPassphrase: string }> {
+}): Promise<{
+  contractId: string;
+  xdr: string;
+  networkPassphrase: string;
+  deploymentTxHash: string | null;
+  wasmUploadTxHash: string | null;
+}> {
   const { founderPublicKey, totalBudgetXLM, existingContractId } = params;
 
   if (totalBudgetXLM <= 0) {
@@ -640,20 +714,13 @@ async function buildInitializeTx(params: {
 
   // Deploy a fresh contract if we don't have one yet
   let contractId = existingContractId;
+  let deploymentTxHash: string | null = null;
+  let wasmUploadTxHash: string | null = null;
   if (!contractId) {
-    const { stdout } = await execFileAsync("stellar", [
-      "contract",
-      "deploy",
-      "--wasm",
-      resolvedWasmPath,
-      "--rpc-url",
-      sorobanRpcUrl,
-      "--source",
-      admin,
-      "--network",
-      networkName,
-    ]);
-    contractId = parseContractId(stdout);
+    const deployment = await deployContractWithSdk(admin, resolvedWasmPath);
+    contractId = deployment.contractId;
+    deploymentTxHash = deployment.deploymentTxHash;
+    wasmUploadTxHash = deployment.uploadTxHash;
   }
 
   // Build the initialize() invocation as an unsigned transaction
@@ -686,7 +753,13 @@ async function buildInitializeTx(params: {
   const assembled = rpcNs.assembleTransaction(tx, simulation).build();
   const xdr = assembled.toEnvelope().toXDR("base64");
 
-  return { contractId, xdr, networkPassphrase };
+  return {
+    contractId,
+    xdr,
+    networkPassphrase,
+    deploymentTxHash,
+    wasmUploadTxHash,
+  };
 }
 
 async function buildEndCampaignTx(params: {
@@ -734,6 +807,7 @@ export {
   getContractBalance,
   getOnChainScore,
   getPayoutEstimate,
+  SorobanConfigError,
   triggerCreatorPayout,
   updateCreatorScore,
   verifyCampaignFunded,

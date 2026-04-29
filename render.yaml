@@ -24,8 +24,14 @@ services:
         sync: false # Set manually in Render dashboard
       - key: STELLAR_NETWORK
         value: testnet
-      - key: SOROBAN_RPC_HOST
+      - key: STELLAR_SOROBAN_RPC_URL
         value: https://soroban-testnet.stellar.org
+      - key: STELLAR_HORIZON_URL
+        value: https://horizon-testnet.stellar.org
+      - key: STELLAR_NETWORK_PASSPHRASE
+        value: Test SDF Network ; September 2015
+      - key: SOROBAN_WASM_PATH
+        value: contracts/earnify-campaign/artifacts/earnify_campaign.optimized.wasm
       - key: JWT_SECRET
         generateValue: true
       - key: WEB_ORIGIN
