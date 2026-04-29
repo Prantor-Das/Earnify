@@ -26,8 +26,18 @@ services:
         value: testnet
       - key: SOROBAN_RPC_HOST
         value: https://soroban-testnet.stellar.org
-      - key: API_PORT
-        value: "3001"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: WEB_ORIGIN
+        sync: false # Set to your deployed web origin, for example https://earnify.vercel.app
+      - key: CORS_ORIGINS
+        sync: false # Comma-separated allowed web origins
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false # https://<api-service>.onrender.com/api/auth/google/callback
 
   - type: postgres
     name: earnify-db

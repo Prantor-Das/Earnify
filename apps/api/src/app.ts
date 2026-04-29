@@ -25,9 +25,13 @@ function normalizeOrigin(value: string) {
 }
 
 function getAllowedOrigins() {
-  const configuredOrigins = process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(",")
-    : [process.env.WEB_ORIGIN ?? "http://localhost:3000"];
+  const corsOrigins =
+    process.env.CORS_ORIGINS ??
+    process.env.CORS_ORIGIN ??
+    process.env.WEB_ORIGIN;
+  const configuredOrigins = corsOrigins
+    ? corsOrigins.split(",")
+    : ["http://localhost:3000"];
 
   return configuredOrigins.map(normalizeOrigin).filter(Boolean);
 }

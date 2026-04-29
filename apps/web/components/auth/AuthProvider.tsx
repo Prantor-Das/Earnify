@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         credentials: "include",
       });
 
-      const payload = await parseJson<{ user: AuthUser }>(response);
+      const payload = await parseJson<{ user: AuthUser | null }>(response);
 
       if (!response.ok || !payload.success || !payload.data?.user) {
         setUser(null);

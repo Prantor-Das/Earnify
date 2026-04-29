@@ -6,7 +6,7 @@ import type { SignOptions } from "jsonwebtoken";
 import { prisma } from "@earnify/db";
 import type { AuthUser } from "@earnify/shared";
 
-import { requireAuth } from "../../middleware/auth.ts";
+import { optionalAuth, requireAuth } from "../../middleware/auth.ts";
 import { getCookieOptions, getWebAuthSuccessRedirect } from "./cookies.ts";
 import { sendError, sendSuccess } from "../utils/api-response.ts";
 
@@ -92,9 +92,9 @@ authRouter.get("/google/callback", (request, response, next) => {
   )(request, response, next);
 });
 
-authRouter.get("/me", requireAuth, async (request, response) => {
+authRouter.get("/me", optionalAuth, async (request, response) => {
   if (!request.user) {
-    sendError(response, "Unauthorized", 401);
+    sendSuccess(response, { user: null });
     return;
   }
 
