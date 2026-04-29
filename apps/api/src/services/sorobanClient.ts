@@ -19,7 +19,7 @@ const networkPassphrase =
 const adminSecret = process.env.STELLAR_ADMIN_SECRET;
 const configuredWasmPath =
   process.env.SOROBAN_WASM_PATH ??
-  "contracts/earnify-campaign/target/wasm32v1-none/release/earnify_campaign.optimized.wasm";
+  "contracts/earnify-campaign/artifacts/earnify_campaign.optimized.wasm";
 
 const serviceDir = dirname(fileURLToPath(import.meta.url));
 const repoRootDir = resolve(serviceDir, "../../../../");
@@ -50,6 +50,7 @@ function getWasmCandidates() {
 
   return [
     normalizedConfiguredPath,
+    join(contractDir, "artifacts/earnify_campaign.optimized.wasm"),
     join(
       contractDir,
       "target/wasm32v1-none/release/earnify_campaign.optimized.wasm",
