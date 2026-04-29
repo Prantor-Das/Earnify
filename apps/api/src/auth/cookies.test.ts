@@ -88,6 +88,20 @@ describe("auth cookie helpers", () => {
     expect(sameSite).toBe("none");
   });
 
+  it("defaults deployed production API cookies to SameSite none without web origin config", () => {
+    process.env.NODE_ENV = "production";
+
+    const sameSite = inferCookieSameSite(
+      makeRequest({
+        host: "earnify-yqyr.onrender.com",
+        protocol: "https",
+        secure: true,
+      }),
+    );
+
+    expect(sameSite).toBe("none");
+  });
+
   it("respects explicit SameSite config when provided", () => {
     process.env.AUTH_COOKIE_SAME_SITE = "strict";
 

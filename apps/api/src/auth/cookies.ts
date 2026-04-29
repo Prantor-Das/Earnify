@@ -79,10 +79,6 @@ function inferCookieSameSite(
     return configuredSameSite;
   }
 
-  if (!webAuthSuccessRedirect) {
-    return "lax";
-  }
-
   const requestOrigin = getRequestOrigin(request);
   if (!requestOrigin) {
     return "lax";
@@ -90,6 +86,13 @@ function inferCookieSameSite(
 
   try {
     const apiUrl = new URL(requestOrigin);
+
+    if (!webAuthSuccessRedirect) {
+      return process.env.NODE_ENV === "production" && !hasLocalHostname(apiUrl)
+        ? "none"
+        : "lax";
+    }
+
     const webUrl = new URL(webAuthSuccessRedirect);
 
     if (hasLocalHostname(apiUrl) && hasLocalHostname(webUrl)) {
