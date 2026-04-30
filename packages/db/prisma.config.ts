@@ -8,17 +8,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 loadEnv({ path: path.resolve(__dirname, "../../.env") });
 
-const databaseUrl = process.env.DATABASE_URL;
-const localDatabaseUrl = process.env.LOCAL_DATABASE_URL;
+const isMigrationCommand = process.argv.some((arg) =>
+  ["migrate", "db", "deploy"].includes(arg),
+);
+const databaseUrl =
+  isMigrationCommand
+    ? (process.env.MIGRATION_DATABASE_URL ??
+        process.env.DIRECT_URL ??
+        process.env.DATABASE_URL)
+    : process.env.DATABASE_URL;
 const isGenerateCommand = process.argv.some((arg) => arg === "generate");
-const isMigrateDevCommand =
-  process.argv.includes("migrate") && process.argv.includes("dev");
-const datasourceUrl =
-  isMigrateDevCommand && localDatabaseUrl ? localDatabaseUrl : databaseUrl;
 
-if (!datasourceUrl && !isGenerateCommand) {
+if (!databaseUrl && !isGenerateCommand) {
   throw new Error(
-    "DATABASE_URL is required. Set it to your Postgres connection string.",
+    "DATABASE_URL is required. Set it to your Supabase Postgres connection string.",
   );
 }
 
@@ -31,7 +34,7 @@ export default defineConfig({
   datasource: {
     // `prisma generate` doesn't require a live DB connection; keep other commands strict.
     url:
-      datasourceUrl ??
+      databaseUrl ??
       "postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public",
   },
 });

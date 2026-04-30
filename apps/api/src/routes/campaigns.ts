@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { CampaignStatus, prisma } from "@virlo/db";
+import { CampaignStatus, UserRole, prisma } from "@virlo/db";
 import * as StellarSdk from "@stellar/stellar-sdk";
 
 import {
@@ -19,6 +19,10 @@ import {
   verifyCampaignFunded,
 } from "../services/sorobanClient.ts";
 import { executeCampaignPayouts } from "../services/payoutService.ts";
+import {
+  generateCampaignBrief,
+  scoreCreatorMatch,
+} from "../services/matchingEngine.ts";
 import {
   createCampaignWallet,
   encryptSecretKey,
@@ -52,6 +56,58 @@ function parseCampaignStatus(value: unknown): CampaignStatus | null {
   }
 
   return null;
+}
+
+type CampaignListFilter = "live" | "upcoming" | "ended" | null;
+
+function parseCampaignListFilter(value: unknown): CampaignListFilter {
+  if (value === "live" || value === "upcoming" || value === "ended") {
+    return value;
+  }
+
+  return null;
+}
+
+function getCampaignListSegment(campaign: {
+  status: CampaignStatus;
+  startDate: Date | null;
+  endDate: Date | null;
+  endsAt: Date | null;
+}) {
+  const now = Date.now();
+  const endTime = campaign.endDate?.getTime() ?? campaign.endsAt?.getTime();
+  const startTime = campaign.startDate?.getTime() ?? Number.NEGATIVE_INFINITY;
+
+  if (
+    campaign.status === CampaignStatus.ENDED ||
+    campaign.status === CampaignStatus.COMPLETED ||
+    (endTime !== undefined && endTime <= now)
+  ) {
+    return "ended";
+  }
+
+  if (campaign.status === CampaignStatus.ACTIVE && startTime <= now) {
+    return "live";
+  }
+
+  return "upcoming";
+}
+
+function filterCampaignList<
+  T extends {
+    status: CampaignStatus;
+    startDate: Date | null;
+    endDate: Date | null;
+    endsAt: Date | null;
+  },
+>(campaigns: T[], filter: CampaignListFilter) {
+  if (!filter) {
+    return campaigns;
+  }
+
+  return campaigns.filter(
+    (campaign) => getCampaignListSegment(campaign) === filter,
+  );
 }
 
 function parseIdParam(value: string | string[] | undefined): string | null {
@@ -379,6 +435,7 @@ campaignsRouter.post(
           id: campaign.id,
           title: campaign.title,
           description: campaign.description,
+          aiBrief: campaign.aiBrief,
           budget: campaign.budget,
           budgetToken: campaign.budgetToken,
           platforms: campaign.platforms,
@@ -406,6 +463,9 @@ campaignsRouter.post(
 // ---------------------------------------------------------------------------
 
 campaignsRouter.get("/", optionalAuth, async (request, response) => {
+  const statusFilter = parseCampaignListFilter(request.query.status);
+  const founderFilter = request.query.founder === "me";
+
   // Try to extract the authenticated user (optional — no hard failure)
   let authenticatedUserId: string | null = null;
   let authenticatedUserRole: string | null = null;
@@ -438,10 +498,15 @@ campaignsRouter.get("/", optionalAuth, async (request, response) => {
 
     // Merge: founder's own campaigns + active campaigns not already in founder list
     const founderIds = new Set(founderCampaigns.map((c) => c.id));
-    const merged = [
-      ...founderCampaigns,
-      ...activeCampaigns.filter((c) => !founderIds.has(c.id)),
-    ];
+    const merged = filterCampaignList(
+      founderFilter
+        ? founderCampaigns
+        : [
+            ...founderCampaigns,
+            ...activeCampaigns.filter((c) => !founderIds.has(c.id)),
+          ],
+      statusFilter,
+    );
 
     sendSuccess(
       response,
@@ -449,6 +514,7 @@ campaignsRouter.get("/", optionalAuth, async (request, response) => {
         id: campaign.id,
         title: campaign.title,
         description: campaign.description,
+        aiBrief: campaign.aiBrief,
         productUrl: campaign.productUrl,
         budget: campaign.budget,
         budgetToken: campaign.budgetToken,
@@ -494,10 +560,11 @@ campaignsRouter.get("/", optionalAuth, async (request, response) => {
 
     sendSuccess(
       response,
-      campaigns.map((campaign) => ({
+      filterCampaignList(campaigns, statusFilter).map((campaign) => ({
         id: campaign.id,
         title: campaign.title,
         description: campaign.description,
+        aiBrief: campaign.aiBrief,
         productUrl: campaign.productUrl,
         budget: campaign.budget,
         budgetToken: campaign.budgetToken,
@@ -537,10 +604,11 @@ campaignsRouter.get("/", optionalAuth, async (request, response) => {
 
   sendSuccess(
     response,
-    campaigns.map((campaign) => ({
+    filterCampaignList(campaigns, statusFilter).map((campaign) => ({
       id: campaign.id,
       title: campaign.title,
       description: campaign.description,
+      aiBrief: campaign.aiBrief,
       productUrl: campaign.productUrl,
       budget: campaign.budget,
       budgetToken: campaign.budgetToken,
@@ -569,6 +637,152 @@ campaignsRouter.get("/", optionalAuth, async (request, response) => {
 // ---------------------------------------------------------------------------
 // GET /api/campaigns/:id
 // ---------------------------------------------------------------------------
+
+campaignsRouter.post(
+  "/:id/generate-brief",
+  requireAuth,
+  requireRole("FOUNDER"),
+  async (request, response) => {
+    const campaignId = parseIdParam(request.params.id);
+
+    if (!campaignId) {
+      sendError(response, "Campaign id is required", 400);
+      return;
+    }
+
+    if (!request.user) {
+      sendError(response, "Unauthorized", 401);
+      return;
+    }
+
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    if (!campaign) {
+      sendError(response, "Campaign not found", 404);
+      return;
+    }
+
+    if (campaign.founderId !== request.user.id) {
+      sendError(response, "Forbidden", 403);
+      return;
+    }
+
+    try {
+      const brief = await generateCampaignBrief(campaign);
+      await prisma.campaign.update({
+        where: { id: campaign.id },
+        data: { aiBrief: brief },
+      });
+
+      sendSuccess(response, { brief });
+    } catch (error) {
+      console.error("Failed to generate campaign brief", error);
+      sendError(response, "Failed to generate campaign brief", 500);
+    }
+  },
+);
+
+campaignsRouter.get(
+  "/:id/match-score",
+  requireAuth,
+  async (request, response) => {
+    const campaignId = parseIdParam(request.params.id);
+
+    if (!campaignId) {
+      sendError(response, "Campaign id is required", 400);
+      return;
+    }
+
+    if (!request.user) {
+      sendError(response, "Unauthorized", 401);
+      return;
+    }
+
+    const [campaign, creator] = await Promise.all([
+      prisma.campaign.findUnique({ where: { id: campaignId } }),
+      prisma.user.findUnique({ where: { id: request.user.id } }),
+    ]);
+
+    if (!campaign) {
+      sendError(response, "Campaign not found", 404);
+      return;
+    }
+
+    if (!creator) {
+      sendError(response, "Creator not found", 404);
+      return;
+    }
+
+    try {
+      const match = await scoreCreatorMatch(creator, campaign);
+      sendSuccess(response, match);
+    } catch (error) {
+      console.error("Failed to score creator match", error);
+      sendError(response, "Failed to score creator match", 500);
+    }
+  },
+);
+
+campaignsRouter.get(
+  "/:id/top-matches",
+  requireAuth,
+  requireRole("FOUNDER"),
+  async (request, response) => {
+    const campaignId = parseIdParam(request.params.id);
+
+    if (!campaignId) {
+      sendError(response, "Campaign id is required", 400);
+      return;
+    }
+
+    if (!request.user) {
+      sendError(response, "Unauthorized", 401);
+      return;
+    }
+
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    if (!campaign) {
+      sendError(response, "Campaign not found", 404);
+      return;
+    }
+
+    if (campaign.founderId !== request.user.id) {
+      sendError(response, "Forbidden", 403);
+      return;
+    }
+
+    try {
+      const creators = await prisma.user.findMany({
+        where: { role: UserRole.USER },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const ranked = await Promise.all(
+        creators.map(async (creator) => {
+          const match = await scoreCreatorMatch(creator, campaign);
+          return {
+            id: creator.id,
+            name: creator.name,
+            avatar: creator.avatar,
+            score: match.score,
+            breakdown: match.breakdown,
+          };
+        }),
+      );
+
+      ranked.sort((a, b) => b.score - a.score);
+      sendSuccess(response, { matches: ranked });
+    } catch (error) {
+      console.error("Failed to load creator matches", error);
+      sendError(response, "Failed to load creator matches", 500);
+    }
+  },
+);
 
 campaignsRouter.get("/:id", async (request, response) => {
   const campaignId = parseIdParam(request.params.id);
@@ -605,6 +819,7 @@ campaignsRouter.get("/:id", async (request, response) => {
     id: campaign.id,
     title: campaign.title,
     description: campaign.description,
+    aiBrief: campaign.aiBrief,
     productUrl: campaign.productUrl,
     budget: campaign.budget,
     budgetToken: campaign.budgetToken,
@@ -668,6 +883,7 @@ campaignsRouter.patch(
       status?: string;
       contractId?: string;
       stellarTxHash?: string;
+      aiBrief?: string;
     };
 
     const status = parseCampaignStatus(body.status);
@@ -677,12 +893,14 @@ campaignsRouter.patch(
       typeof body.stellarTxHash === "string"
         ? body.stellarTxHash.trim()
         : undefined;
+    const incomingAiBrief =
+      typeof body.aiBrief === "string" ? body.aiBrief.trim() : undefined;
 
     // At least one field must be provided
-    if (!status && !incomingContractId && !incomingTxHash) {
+    if (!status && !incomingContractId && !incomingTxHash && !incomingAiBrief) {
       sendError(
         response,
-        "Provide at least one of: status, contractId, stellarTxHash",
+        "Provide at least one of: status, contractId, stellarTxHash, aiBrief",
         400,
       );
       return;
@@ -774,6 +992,7 @@ campaignsRouter.patch(
       updateData.stellarContractId = incomingContractId;
     }
     if (incomingTxHash) updateData.fundingTxHash = incomingTxHash;
+    if (incomingAiBrief !== undefined) updateData.aiBrief = incomingAiBrief;
 
     const campaign = await prisma.campaign.update({
       where: { id: campaignId },
@@ -783,6 +1002,7 @@ campaignsRouter.patch(
     sendSuccess(response, {
       id: campaign.id,
       status: campaign.status,
+      aiBrief: campaign.aiBrief,
       contractId: campaign.contractId ?? campaign.stellarContractId,
       fundingTxHash: campaign.fundingTxHash,
       fundingTxUrl: getTxUrl(campaign.fundingTxHash),

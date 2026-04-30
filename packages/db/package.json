@@ -9,7 +9,7 @@
   },
   "scripts": {
     "db:generate": "prisma generate --config prisma.config.ts",
-    "db:migrate": "prisma migrate dev --config prisma.config.ts",
+    "db:migrate": "prisma migrate dev --name sync_schema --config prisma.config.ts",
     "db:deploy": "prisma migrate deploy --config prisma.config.ts",
     "db:seed": "prisma db seed --config prisma.config.ts",
     "db:studio": "prisma studio --config prisma.config.ts"

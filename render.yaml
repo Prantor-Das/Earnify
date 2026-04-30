@@ -17,9 +17,7 @@ services:
       - key: PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK
         value: "1"
       - key: DATABASE_URL
-        fromDatabase:
-          name: virlo-db
-          property: connectionString
+        sync: false # Set to your Supabase Postgres pooler connection string
       - key: STELLAR_ADMIN_SECRET
         sync: false # Set manually in Render dashboard
       - key: STELLAR_NETWORK
@@ -44,11 +42,3 @@ services:
         sync: false
       - key: GOOGLE_CALLBACK_URL
         sync: false # https://<api-service>.onrender.com/api/auth/google/callback
-
-  - type: postgres
-    name: virlo-db
-    plan: free
-
-    # Database auto-configured
-    # Note: Use external Neon DB instead if you prefer managed postgres
-    # Uncomment above and remove this section, then set DATABASE_URL manually

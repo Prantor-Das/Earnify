@@ -31,6 +31,32 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v rustup >/dev/null 2>&1; then
+  echo "Error: rustup is required to install the wasm32v1-none target."
+  echo "Install Rust with rustup, then run: rustup target add wasm32v1-none"
+  exit 1
+fi
+
+# Homebrew cargo/rustc can appear before rustup on macOS and cannot see
+# targets installed with rustup. Stellar shells out to cargo, so make the
+# rustup shims win before building.
+if [[ -d "$HOME/.cargo/bin" ]]; then
+  export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
+if ! rustup target list --installed | grep -qx 'wasm32v1-none'; then
+  echo "Installing missing Rust target: wasm32v1-none"
+  rustup target add wasm32v1-none
+fi
+
+if ! rustc --print target-libdir --target wasm32v1-none >/dev/null 2>&1; then
+  echo "Error: active rustc cannot find wasm32v1-none core libraries."
+  echo "Active rustc: $(command -v rustc)"
+  echo "Active cargo: $(command -v cargo)"
+  echo "Try: rustup target add wasm32v1-none"
+  exit 1
+fi
+
 echo "Building Soroban contract..."
 cd "$CONTRACT_DIR"
 stellar contract build

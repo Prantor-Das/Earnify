@@ -44,6 +44,128 @@ dashboardRouter.get("/", async (_request, response) => {
   });
 });
 
+dashboardRouter.get("/creator", requireAuth, async (request, response) => {
+  if (!request.user) {
+    sendError(response, "Unauthorized", 401);
+    return;
+  }
+
+  const [paidOut, pendingPayout, activePosts, rankedScores] = await Promise.all(
+    [
+      prisma.payout.aggregate({
+        where: {
+          userId: request.user.id,
+          status: "COMPLETED",
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+      prisma.payout.aggregate({
+        where: {
+          userId: request.user.id,
+          status: "PENDING",
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+      prisma.post.count({
+        where: {
+          userId: request.user.id,
+          campaign: {
+            status: CampaignStatus.ACTIVE,
+          },
+        },
+      }),
+      prisma.score.groupBy({
+        by: ["userId"],
+        _sum: {
+          totalScore: true,
+        },
+        orderBy: {
+          _sum: {
+            totalScore: "desc",
+          },
+        },
+      }),
+    ],
+  );
+
+  const rankIndex = rankedScores.findIndex(
+    (entry) => entry.userId === request.user?.id,
+  );
+
+  sendSuccess(response, {
+    totalEarned: toNumber(paidOut._sum.amount),
+    activePosts,
+    pendingPayout: toNumber(pendingPayout._sum.amount),
+    rank: rankIndex >= 0 ? rankIndex + 1 : null,
+  });
+});
+
+dashboardRouter.get("/founder", requireAuth, async (request, response) => {
+  if (!request.user) {
+    sendError(response, "Unauthorized", 401);
+    return;
+  }
+
+  const campaigns = await prisma.campaign.findMany({
+    where: {
+      founderId: request.user.id,
+    },
+    select: {
+      id: true,
+      totalBudget: true,
+      status: true,
+      posts: {
+        select: {
+          engagements: {
+            orderBy: {
+              fetchedAt: "desc",
+            },
+            take: 1,
+            select: {
+              views: true,
+              likes: true,
+              shares: true,
+              comments: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  let totalReach = 0;
+  let totalInteractions = 0;
+
+  for (const campaign of campaigns) {
+    for (const post of campaign.posts) {
+      const engagement = post.engagements[0];
+      if (!engagement) continue;
+
+      totalReach += engagement.views;
+      totalInteractions +=
+        engagement.likes + engagement.shares + engagement.comments;
+    }
+  }
+
+  const totalBudgetDeployed = campaigns.reduce(
+    (sum, campaign) => sum + toNumber(campaign.totalBudget),
+    0,
+  );
+
+  sendSuccess(response, {
+    totalBudgetDeployed,
+    totalReach,
+    activeCampaigns: campaigns.filter(
+      (campaign) => campaign.status === CampaignStatus.ACTIVE,
+    ).length,
+    engagementRate: totalReach > 0 ? (totalInteractions / totalReach) * 100 : 0,
+  });
+});
+
 dashboardRouter.get("/earnings", requireAuth, async (request, response) => {
   if (!request.user) {
     sendError(response, "Unauthorized", 401);

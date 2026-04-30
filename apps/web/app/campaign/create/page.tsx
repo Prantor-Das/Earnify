@@ -3,11 +3,10 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 
-import { useRouter } from "next/navigation";
-
 import type { ApiResponse } from "@virlo/shared";
 import { withAuth } from "../../../components/auth/withAuth";
 import { FundCampaignStep } from "../../../components/campaign/FundCampaignStep";
+import { useToast } from "../../../components/toast/ToastProvider";
 
 const apiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
@@ -20,6 +19,7 @@ type CampaignDraft = {
   id: string;
   title: string;
   description: string;
+  aiBrief?: string | null;
   budget: string;
   budgetToken: string;
   platforms: string[];
@@ -38,7 +38,7 @@ const PLATFORMS = [
   { id: "LINKEDIN", label: "LinkedIn" },
 ] as const;
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 // ---------------------------------------------------------------------------
 // Step indicators
@@ -85,6 +85,7 @@ const STEP_LABELS = [
   "Platforms & Keywords",
   "Budget & Dates",
   "Review & Save",
+  "AI Brief",
   "Fund on Stellar",
 ];
 
@@ -437,6 +438,79 @@ function Step4Review({
 }
 
 // ---------------------------------------------------------------------------
+// Step 5: AI Campaign Brief
+// ---------------------------------------------------------------------------
+
+function AiBriefPanel({
+  brief,
+  loading,
+  saving,
+  onChange,
+  onRegenerate,
+  onContinue,
+}: {
+  brief: string;
+  loading: boolean;
+  saving: boolean;
+  onChange: (value: string) => void;
+  onRegenerate: () => void;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[#0D0F14] p-5">
+        <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-primary)]">
+              AI Campaign Brief
+            </p>
+            <h3 className="mt-2 text-xl font-bold text-white">
+              Creator-facing preview
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onRegenerate}
+            disabled={loading || saving}
+            className="inline-flex items-center justify-center rounded-full border border-[#F59E0B] px-4 py-2 text-sm font-bold text-[#F59E0B] transition-colors hover:bg-[#F59E0B]/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {loading ? "Generating..." : "Regenerate"}
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">
+            <div className="h-4 w-full animate-pulse rounded bg-[var(--color-border)]" />
+            <div className="h-4 w-11/12 animate-pulse rounded bg-[var(--color-border)]" />
+            <div className="h-4 w-10/12 animate-pulse rounded bg-[var(--color-border)]" />
+            <div className="mt-6 h-4 w-full animate-pulse rounded bg-[var(--color-border)]" />
+            <div className="h-4 w-9/12 animate-pulse rounded bg-[var(--color-border)]" />
+          </div>
+        ) : (
+          <textarea
+            value={brief}
+            onChange={(event) => onChange(event.target.value)}
+            rows={12}
+            className="w-full resize-y rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm leading-7 text-white transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+          />
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 border-t border-[var(--color-border)]/50 pt-6 sm:flex-row sm:justify-between">
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={loading || saving || brief.trim().length === 0}
+          className="inline-flex items-center justify-center rounded-full bg-[var(--color-primary)] px-8 py-3 text-sm font-bold text-white shadow-lg shadow-[var(--color-primary)]/20 transition-transform hover:-translate-y-0.5 hover:shadow-[var(--color-primary)]/40 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? "Saving brief..." : "Continue to Funding ->"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Final success state (funded + activated)
 // ---------------------------------------------------------------------------
 
@@ -529,7 +603,7 @@ function FundedSuccessPanel({
 // ---------------------------------------------------------------------------
 
 function CreateCampaignPage() {
-  const router = useRouter();
+  const { pushToast } = useToast();
 
   // Form state
   const [step, setStep] = useState(1);
@@ -545,6 +619,9 @@ function CreateCampaignPage() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [brief, setBrief] = useState("");
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefSaving, setBriefSaving] = useState(false);
   const [createdCampaign, setCreatedCampaign] = useState<CampaignDraft | null>(
     null,
   );
@@ -671,12 +748,92 @@ function CreateCampaignPage() {
       }
 
       setCreatedCampaign(payload.data);
-      // Advance to step 5 (Fund on Stellar)
+      setBrief(payload.data.aiBrief ?? "");
       setStep(5);
+      void generateBrief(payload.data.id);
     } catch {
       setSubmitError("Network error — please try again");
+      pushToast({
+        type: "error",
+        title: "Campaign save failed",
+        message: "Network error. Please try again.",
+      });
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function generateBrief(campaignId: string) {
+    setBriefLoading(true);
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/campaigns/${campaignId}/generate-brief`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+      const payload = (await response.json()) as ApiResponse<{ brief: string }>;
+
+      if (!response.ok || !payload.success || !payload.data?.brief) {
+        throw new Error(payload.error ?? "Failed to generate brief");
+      }
+
+      setBrief(payload.data.brief);
+    } catch (error) {
+      setBrief((current) => current || description.trim());
+      pushToast({
+        type: "error",
+        title: "Brief generation failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The draft was saved, but the brief could not be generated.",
+      });
+    } finally {
+      setBriefLoading(false);
+    }
+  }
+
+  async function saveBriefAndContinue() {
+    if (!createdCampaign) return;
+
+    setBriefSaving(true);
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/campaigns/${createdCampaign.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ aiBrief: brief }),
+        },
+      );
+      const payload = (await response.json()) as ApiResponse<{
+        aiBrief: string | null;
+      }>;
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error ?? "Failed to save brief");
+      }
+
+      setCreatedCampaign({
+        ...createdCampaign,
+        aiBrief: payload.data?.aiBrief ?? brief,
+      });
+      setStep(6);
+    } catch (error) {
+      pushToast({
+        type: "error",
+        title: "Brief save failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Please try saving the brief again.",
+      });
+    } finally {
+      setBriefSaving(false);
     }
   }
 
@@ -693,6 +850,9 @@ function CreateCampaignPage() {
     setEndDate("");
     setErrors({});
     setSubmitError(null);
+    setBrief("");
+    setBriefLoading(false);
+    setBriefSaving(false);
   }
 
   return (
@@ -736,6 +896,19 @@ function CreateCampaignPage() {
                   onCreateAnother={handleCreateAnother}
                 />
               ) : createdCampaign && step === 5 ? (
+                <AiBriefPanel
+                  brief={brief}
+                  loading={briefLoading}
+                  saving={briefSaving}
+                  onChange={setBrief}
+                  onRegenerate={() => {
+                    void generateBrief(createdCampaign.id);
+                  }}
+                  onContinue={() => {
+                    void saveBriefAndContinue();
+                  }}
+                />
+              ) : createdCampaign && step === 6 ? (
                 <FundCampaignStep
                   campaign={createdCampaign}
                   onSuccess={(result) => {

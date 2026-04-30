@@ -22,20 +22,20 @@ export function BudgetBar({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
-        <span className="font-semibold text-[#f5f5f5]">
+        <span className="font-medium text-[#0A0A0A]">
           {remainingBudget.toFixed(2)} XLM left
         </span>
-        <span className="font-medium text-[var(--color-muted)]">
+        <span className="font-medium text-[#525252]">
           {totalBudget.toFixed(2)} XLM total
         </span>
       </div>
 
       <div
-        className="overflow-hidden rounded-sm border border-[var(--color-border)] bg-black/45"
+        className="overflow-hidden border border-[#E5E5E5] bg-[#F5F5F5] [border-radius:6px]"
         style={{ height: barHeight }}
       >
         <div
-          className="h-full rounded-sm bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-accent)] shadow-[0_0_20px_-8px_rgba(245,158,11,0.8)]"
+          className="h-full bg-[#F59E0B]"
           style={{ width: `${spentPercent}%` }}
         />
       </div>

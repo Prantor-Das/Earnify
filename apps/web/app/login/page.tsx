@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -10,74 +10,58 @@ function LoginPageContent() {
   const { isAuthenticated, loading, loginWithGoogle } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [submitting, setSubmitting] = useState(false);
+
+  const authError =
+    searchParams.get("error") ||
+    searchParams.get("auth_error") ||
+    searchParams.get("message");
 
   useEffect(() => {
-    if (loading || !isAuthenticated) {
-      return;
+    if (!loading && isAuthenticated) {
+      router.replace("/dashboard");
     }
-
-    const nextPath = searchParams.get("next") || "/";
-    router.replace(nextPath as Parameters<typeof router.replace>[0]);
-  }, [isAuthenticated, loading, router, searchParams]);
+  }, [isAuthenticated, loading, router]);
 
   return (
-    <main className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-6 py-14">
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(48rem 24rem at 8% 12%, rgba(245,158,11,0.14), transparent), radial-gradient(46rem 20rem at 88% 84%, rgba(255,255,255,0.08), transparent)",
-        }}
-      />
-
-      <section className="mx-auto grid w-full max-w-5xl items-stretch gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <article className="surface-card motion-rise rounded-sm p-8 sm:p-10 lg:p-12">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">
-            Secure Access
+    <main className="grid min-h-[calc(100vh-4rem)] place-items-center bg-[#0A0A0A] px-5 py-16 text-[#FAFAFA]">
+      <section className="w-full max-w-md border border-[#525252] bg-[#111111] p-8 [border-radius:8px]">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <span className="grid h-12 w-12 place-items-center border border-[#F59E0B] text-xl font-medium text-[#F59E0B]">
+            V
+          </span>
+          <h1 className="mt-5 text-3xl font-medium">Sign in to Virlo</h1>
+          <p className="mt-3 text-sm leading-6 text-[#A3A3A3]">
+            Continue with Google to manage campaigns, posts, earnings, and
+            payouts.
           </p>
-          <h1 className="mt-4 text-3xl font-semibold text-zinc-100 sm:text-4xl">
-            Sign in to manage campaigns and payouts
-          </h1>
-          <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-400">
-            Continue with Google to access your dashboard. Session
-            authentication is handled by secure cookies, and wallet actions
-            remain under your control.
-          </p>
+        </div>
 
-          <div className="mt-10 space-y-3">
-            <button
-              type="button"
-              onClick={loginWithGoogle}
-              className="inline-flex w-full items-center justify-center gap-3 border border-[var(--color-primary)] bg-[var(--color-primary)] px-6 py-4 text-sm font-bold uppercase tracking-[0.08em] text-black transition-colors hover:bg-[var(--color-accent)]"
-            >
-              <span
-                aria-hidden
-                className="inline-block h-2.5 w-2.5 animate-pulse bg-black"
-              />
-              Continue with Google
-            </button>
-            <p className="text-xs text-zinc-500">
-              By continuing, you agree to the platform terms and policy.
-            </p>
+        {authError ? (
+          <div className="mb-4 border border-[#525252] bg-[#1A1A1A] px-4 py-3 text-sm text-[#FAFAFA] [border-radius:6px]">
+            Authentication failed. Please try again.
           </div>
-        </article>
+        ) : null}
 
-        <aside className="surface-card rounded-sm p-8">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-300">
-            Why Virlo
-          </h2>
-          <ul className="mt-5 space-y-3 text-sm text-zinc-400">
-            <li className="border border-zinc-800 bg-black/30 p-3">
-              Live campaign states with transparent status tracking.
-            </li>
-            <li className="border border-zinc-800 bg-black/30 p-3">
-              Real-time leaderboard updates and performance insights.
-            </li>
-            <li className="border border-zinc-800 bg-black/30 p-3">
-              On-chain payout visibility through Stellar transaction links.
-            </li>
-          </ul>
-        </aside>
+        <button
+          type="button"
+          disabled={loading || submitting}
+          onClick={() => {
+            setSubmitting(true);
+            loginWithGoogle();
+          }}
+          className="inline-flex h-12 w-full items-center justify-center gap-3 border border-[#F59E0B] bg-[#F59E0B] px-5 text-sm font-medium text-[#0A0A0A] transition-colors hover:border-[#D97706] hover:bg-[#D97706] disabled:cursor-not-allowed disabled:opacity-70 [border-radius:6px]"
+        >
+          {submitting ? (
+            <span
+              aria-hidden
+              className="h-4 w-4 animate-spin border-2 border-[#0A0A0A]/30 border-t-[#0A0A0A] rounded-[50%]"
+            />
+          ) : (
+            <span className="font-medium">G</span>
+          )}
+          {submitting ? "Redirecting..." : "Sign in with Google"}
+        </button>
       </section>
     </main>
   );
@@ -85,24 +69,9 @@ function LoginPageContent() {
 
 function LoginFallback() {
   return (
-    <main className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-6 py-14">
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(48rem 24rem at 8% 12%, rgba(245,158,11,0.14), transparent), radial-gradient(46rem 20rem at 88% 84%, rgba(255,255,255,0.08), transparent)",
-        }}
-      />
-
-      <section className="mx-auto grid w-full max-w-5xl items-stretch gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <article className="surface-card motion-rise rounded-sm p-8 sm:p-10 lg:p-12">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">
-            Secure Access
-          </p>
-          <h1 className="mt-4 text-3xl font-semibold text-zinc-100 sm:text-4xl">
-            Sign in to manage campaigns and payouts
-          </h1>
-        </article>
+    <main className="grid min-h-[calc(100vh-4rem)] place-items-center bg-[#0A0A0A] px-5 py-16 text-[#FAFAFA]">
+      <section className="w-full max-w-md border border-[#525252] bg-[#111111] p-8 [border-radius:8px]">
+        <div className="mx-auto h-12 w-12 animate-pulse bg-[#525252]" />
       </section>
     </main>
   );

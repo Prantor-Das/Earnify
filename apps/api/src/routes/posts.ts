@@ -28,6 +28,14 @@ function parseIdParam(value: string | string[] | undefined): string | null {
   return null;
 }
 
+function toNumber(value: unknown) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  return Number(value ?? 0);
+}
+
 function randomInRange(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -212,6 +220,141 @@ postsRouter.post("/", requireAuth, async (request, response) => {
       createdAt: post.createdAt.toISOString(),
     },
     202,
+  );
+});
+
+postsRouter.get("/", requireAuth, async (request, response) => {
+  if (!request.user) {
+    sendError(response, "Unauthorized", 401);
+    return;
+  }
+
+  const userId = request.query.userId === "me" ? request.user.id : null;
+  const payoutStatus =
+    typeof request.query.payoutStatus === "string"
+      ? request.query.payoutStatus.toUpperCase()
+      : null;
+  const validPayoutStatus =
+    payoutStatus === "COMPLETED" ||
+    payoutStatus === "PENDING" ||
+    payoutStatus === "FAILED"
+      ? payoutStatus
+      : null;
+
+  if (request.query.userId && !userId) {
+    sendError(response, "Only userId=me is supported", 400);
+    return;
+  }
+
+  if (payoutStatus && payoutStatus !== "ALL" && !validPayoutStatus) {
+    sendError(
+      response,
+      "payoutStatus must be PENDING, COMPLETED, FAILED, or ALL",
+      400,
+    );
+    return;
+  }
+
+  const posts = await prisma.post.findMany({
+    where: {
+      userId: userId ?? request.user.id,
+      ...(validPayoutStatus
+        ? {
+            campaign: {
+              payouts: {
+                some: {
+                  userId: request.user.id,
+                  status: validPayoutStatus,
+                },
+              },
+            },
+          }
+        : {}),
+    },
+    include: {
+      campaign: {
+        select: {
+          id: true,
+          title: true,
+          totalBudget: true,
+          payouts: {
+            where: {
+              userId: request.user.id,
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+            select: {
+              id: true,
+              amount: true,
+              status: true,
+              stellarTxHash: true,
+              createdAt: true,
+            },
+          },
+        },
+      },
+      engagements: {
+        orderBy: {
+          fetchedAt: "desc",
+        },
+        take: 1,
+      },
+      scores: {
+        where: {
+          userId: request.user.id,
+        },
+        select: {
+          totalScore: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  sendSuccess(
+    response,
+    posts.map((post) => {
+      const payout = post.campaign.payouts[0] ?? null;
+      const score = post.scores[0]?.totalScore ?? 0;
+
+      return {
+        id: post.id,
+        postUrl: post.postUrl,
+        platform: post.platform,
+        status: post.status,
+        authenticityScore: post.authenticityScore,
+        createdAt: post.createdAt.toISOString(),
+        campaign: {
+          id: post.campaign.id,
+          title: post.campaign.title,
+        },
+        engagement: post.engagements[0]
+          ? {
+              views: post.engagements[0].views,
+              likes: post.engagements[0].likes,
+              shares: post.engagements[0].shares,
+              comments: post.engagements[0].comments,
+            }
+          : null,
+        engagementScore: score,
+        earnings: payout ? toNumber(payout.amount) : 0,
+        payout: payout
+          ? {
+              id: payout.id,
+              amount: toNumber(payout.amount),
+              status: payout.status,
+              stellarTxHash: payout.stellarTxHash,
+              stellarTxUrl: payout.stellarTxHash
+                ? `https://stellar.expert/explorer/testnet/search?term=${encodeURIComponent(payout.stellarTxHash)}`
+                : null,
+              createdAt: payout.createdAt.toISOString(),
+            }
+          : null,
+      };
+    }),
   );
 });
 

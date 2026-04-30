@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
 # db-deploy.sh
-# Runs migrations against Neon Postgres using DATABASE_URL.
+# Runs migrations against Supabase Postgres using DATABASE_URL.
 #
 # Usage:
 #   ./scripts/db-deploy.sh              # uses DATABASE_URL from .env
-#   DATABASE_URL=<neon-url> ./scripts/db-deploy.sh   # override inline
+#   DATABASE_URL=<supabase-url> ./scripts/db-deploy.sh   # override inline
 # ---------------------------------------------------------------------------
 
 set -euo pipefail

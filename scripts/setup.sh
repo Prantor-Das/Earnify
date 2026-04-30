@@ -41,7 +41,7 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
 fi
 
 if [[ -z "${DATABASE_URL:-}" ]]; then
-  echo "Error: DATABASE_URL is required. Set it in .env to your Neon connection string."
+  echo "Error: DATABASE_URL is required. Set it in .env to your Supabase Postgres connection string."
   exit 1
 fi
 

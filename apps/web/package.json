@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "pnpm run theme:build && next dev --turbopack --port ${WEB_PORT:-3000}",
+    "dev": "pnpm run theme:build && node --experimental-strip-types scripts/dev-next.ts",
     "build": "pnpm run theme:build && next build --webpack",
     "start": "next start --port ${WEB_PORT:-3000}",
     "lint": "tsc --noEmit -p tsconfig.json",

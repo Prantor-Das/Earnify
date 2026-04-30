@@ -57,7 +57,7 @@ fi
 if [[ -z "${DATABASE_URL:-}" ]]; then
     echo -e "${YELLOW}⚠ DATABASE_URL not set${NC}"
     echo "Set it in your .env file or export it:"
-    echo "  export DATABASE_URL='your-neon-connection-string'"
+    echo "  export DATABASE_URL='your-supabase-postgres-connection-string'"
 else
     echo -e "${GREEN}✓ DATABASE_URL configured${NC}"
 fi
@@ -136,8 +136,8 @@ case $choice in
         echo -e "${BLUE}📦 Full Stack Deployment${NC}"
         echo ""
         echo "Phase 1: Database"
-        echo "  1. Create Neon account: https://neon.tech"
-        echo "  2. Get connection string"
+        echo "  1. Create Supabase project: https://supabase.com"
+        echo "  2. Get the Postgres pooler connection string"
         echo "  3. Set DATABASE_URL in .env"
         echo "  4. Run: ./scripts/db-deploy.sh"
         echo ""

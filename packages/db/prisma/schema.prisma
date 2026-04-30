@@ -57,6 +57,7 @@ model Campaign {
   id                      String         @id @default(cuid())
   title                   String
   description             String
+  aiBrief                 String?
   productUrl              String?
   budget                  String         @default("0")
   budgetToken             String         @default("XLM")

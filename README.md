@@ -136,7 +136,7 @@ Virlo creates a **transparent, performance-based marketing ecosystem** where:
 │    DATABASE LAYER        │  │   BLOCKCHAIN LAYER     │
 │  ┌────────────────────┐  │  │  ┌──────────────────┐  │
 │  │   PostgreSQL       │  │  │  │ Stellar Testnet  │  │
-│  │   (Neon Cloud)     │  │  │  │                  │  │
+│  │   (Supabase)       │  │  │  │                  │  │
 │  │   • Users          │  │  │  │ Soroban Smart    │  │
 │  │   • Campaigns      │  │  │  │ Contracts        │  │
 │  │   • Posts          │  │  │  │                  │  │
@@ -363,7 +363,7 @@ Creator Posts → API Receives URL → Engagement Fetcher
 
 ### Database & Storage
 
-- **Primary DB:** PostgreSQL (Neon)
+- **Primary DB:** PostgreSQL (Supabase)
 - **Caching:** Redis (Upstash)
 - **File Storage:** Cloudinary / AWS S3 (future)
 
@@ -384,7 +384,7 @@ Creator Posts → API Receives URL → Engagement Fetcher
 - **Hosting:**
   - Frontend: Vercel
   - Backend: Vercel Functions / Railway / Render
-  - Database: Neon
+  - Database: Supabase
 - **Monitoring:** Sentry (Error Tracking)
 
 ---
@@ -395,7 +395,7 @@ Creator Posts → API Receives URL → Engagement Fetcher
 
 - **Node.js:** v20 or higher
 - **pnpm:** v10.33.0+ (install via `npm install -g pnpm`)
-- **PostgreSQL:** Database URL (we use Neon)
+- **PostgreSQL:** Supabase database URL
 - **Rust:** For Soroban contracts (install via [rustup](https://rustup.rs/))
 - **Stellar CLI:** `cargo install --locked stellar-cli --features opt`
 - **Stellar Account:** Testnet account with XLM
@@ -539,7 +539,7 @@ virlo/
 
 - **Frontend:** Deployed on Vercel (Next.js App)
 - **Backend API:** Deployed on Vercel Functions
-- **Database:** PostgreSQL on Neon
+- **Database:** PostgreSQL on Supabase
 - **Blockchain:** Stellar Testnet
 - **Smart Contracts:** Soroban (Stellar)
 

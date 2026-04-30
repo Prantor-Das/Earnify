@@ -38,7 +38,7 @@ Complete guide for deploying Virlo to production with Vercel (frontend), Render/
 
 ### Accounts Needed
 
-- **Neon Postgres** (free tier available) - Database
+- **Supabase Postgres** (free tier available) - Database
 - **Vercel** - Frontend hosting
 - **Render** or **Railway** - Backend hosting
 - **Stellar Testnet** account with XLM for testing
@@ -48,20 +48,21 @@ Complete guide for deploying Virlo to production with Vercel (frontend), Render/
 
 ## Database Setup
 
-### Option 1: Neon Postgres (Recommended - Free Tier)
+### Option 1: Supabase Postgres (Recommended - Free Tier)
 
-1. **Create Neon Account**
-   - Go to [neon.tech](https://neon.tech)
+1. **Create Supabase Project**
+   - Go to [supabase.com](https://supabase.com)
    - Sign up with GitHub
    - Create a project (free tier)
 
 2. **Get Connection String**
-   - Copy the connection string from Neon dashboard
-   - Format: `postgresql://user:password@host/database?sslmode=require`
+   - Copy the pooler connection string from Project Settings -> Database
+   - Format: `postgresql://postgres.<PROJECT_REF>:<PASSWORD>@...pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require`
+   - Optional for migrations: set `DIRECT_URL` to the direct connection string if your network can reach it
 
 3. **Migrate Database**
    ```bash
-   export DATABASE_URL="your-neon-connection-string"
+   export DATABASE_URL="your-supabase-postgres-connection-string"
    ./scripts/db-deploy.sh
    ```
 
@@ -143,11 +144,11 @@ NEXT_PUBLIC_STRIPE_KEY=[if applicable]
 **Step 2: Set Environment Variables**
 
 - See [Environment Variables](#environment-variables) section
-- Important: Include `DATABASE_URL` from Neon
+- Important: Include `DATABASE_URL` from Supabase
 
 **Step 3: Database Connection**
 
-- Link to PostgreSQL instance or use Neon URL directly
+- Set `DATABASE_URL` to your Supabase Postgres pooler URL
 
 **Step 4: Deploy**
 
@@ -256,7 +257,8 @@ console.log(`Contract path: ${CONTRACT_DIR}`);
 ### Database
 
 ```
-DATABASE_URL=postgresql://user:pass@neon.techdb/virlo
+DATABASE_URL=postgresql://postgres.<PROJECT_REF>:<PASSWORD>@aws-0-<REGION>.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require
+DIRECT_URL=postgresql://postgres:<PASSWORD>@db.<PROJECT_REF>.supabase.co:5432/postgres?sslmode=require
 PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1
 ```
 
@@ -371,7 +373,7 @@ psql $DATABASE_URL -c "SELECT version();"
 
 - **Vercel:** Built-in analytics & error tracking
 - **Render/Railway:** Monitor resource usage
-- **Database:** Neon dashboard for query performance
+- **Database:** Supabase dashboard for query performance
 - **Contracts:** Stellar testnet explorer for transactions
 
 ---
@@ -410,7 +412,7 @@ pnpm --filter @virlo/db db:generate
 
 - Verify connection string format
 - Check PostgreSQL is public/accessible
-- Verify Neon firewall rules
+- Verify Supabase database connection settings
 - Test locally: `psql $DATABASE_URL`
 
 ### Vercel Build Fails
@@ -483,7 +485,7 @@ jobs:
 
 ## Next Steps
 
-1. Set up Neon Postgres database
+1. Set up Supabase Postgres database
 2. Deploy frontend to Vercel
 3. Deploy backend to Render/Railway
 4. Configure environment variables
