@@ -51,8 +51,8 @@ export type WalletContextValue = {
 
 const WalletContext = createContext<WalletContextValue | null>(null);
 
-const STORAGE_KEY = "earnify_wallet";
-const DISCONNECTED_KEY = "earnify_wallet_disconnected";
+const STORAGE_KEY = "virlo_wallet";
+const DISCONNECTED_KEY = "virlo_wallet_disconnected";
 const apiBaseUrl =
   typeof process !== "undefined"
     ? (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000")

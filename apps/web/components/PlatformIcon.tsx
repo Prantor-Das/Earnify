@@ -1,4 +1,4 @@
-import type { SocialPlatform } from "@earnify/shared";
+import type { SocialPlatform } from "@virlo/shared";
 
 const iconLabel: Record<SocialPlatform, { short: string; full: string }> = {
   TWITTER: { short: "X", full: "Twitter / X" },

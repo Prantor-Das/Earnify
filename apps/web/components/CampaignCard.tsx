@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import type { CampaignStatus } from "@earnify/shared";
+import type { CampaignStatus } from "@virlo/shared";
 
 import { BudgetBar } from "./BudgetBar";
 import { StatusBadge } from "./StatusBadge";

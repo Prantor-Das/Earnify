@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 
 import { useRouter } from "next/navigation";
 
-import type { ApiResponse } from "@earnify/shared";
+import type { ApiResponse } from "@virlo/shared";
 import { withAuth } from "../../../components/auth/withAuth";
 import { FundCampaignStep } from "../../../components/campaign/FundCampaignStep";
 
@@ -127,7 +127,7 @@ function Step1BasicInfo({ title, description, errors, onChange }: Step1Props) {
           type="text"
           value={title}
           onChange={(e) => onChange("title", e.target.value)}
-          placeholder="e.g. Earnify Launch — Q3 2026"
+          placeholder="e.g. Virlo Launch — Q3 2026"
           className="w-full rounded-xl border border-[var(--color-border)] bg-[#0D0F14] px-4 py-3.5 text-white transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
         />
         <FieldError message={errors.title} />
@@ -218,7 +218,7 @@ function Step2PlatformsKeywords({
           type="text"
           value={keywordsInput}
           onChange={(e) => onKeywordsChange(e.target.value)}
-          placeholder="e.g. #Earnify, @EarnifyApp, earnify.io"
+          placeholder="e.g. #Virlo, @VirloApp, virlo.io"
           className="w-full rounded-xl border border-[var(--color-border)] bg-[#0D0F14] px-4 py-3.5 text-white transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
         />
         <FieldError message={errors.requiredKeywords} />

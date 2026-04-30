@@ -1,4 +1,4 @@
-import type { CampaignStatus } from "@earnify/shared";
+import type { CampaignStatus } from "@virlo/shared";
 
 const statusLabelMap: Record<CampaignStatus, string> = {
   DRAFT: "Draft",

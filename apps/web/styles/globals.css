@@ -9,8 +9,11 @@
   --color-success: var(--token-color-success);
   --color-muted: var(--token-color-muted);
   --color-background: var(--token-color-background);
+  --color-foreground: var(--token-color-foreground);
   --color-surface: var(--token-color-surface);
+  --color-surface-strong: var(--token-color-surfaceStrong);
   --color-border: var(--token-color-border);
+  --color-gray-dark: var(--token-color-grayDark);
   --font-sans: var(--token-font-sans);
   --font-size-xs: var(--token-font-size-xs);
   --font-size-sm: var(--token-font-size-sm);
@@ -51,7 +54,7 @@
 
   html {
     background: var(--color-background);
-    color: #f5f5f5;
+    color: var(--color-foreground);
     font-family: var(--font-sans);
     scroll-behavior: smooth;
   }
@@ -59,20 +62,20 @@
   body {
     margin: 0;
     min-height: 100vh;
-    background:
-      radial-gradient(
-        circle at 10% 8%,
-        color-mix(in srgb, var(--color-primary) 12%, transparent) 0%,
-        transparent 30%
-      ),
-      radial-gradient(
-        circle at 92% 16%,
-        color-mix(in srgb, #ffffff 10%, transparent) 0%,
-        transparent 36%
-      ),
-      linear-gradient(165deg, #060606 0%, #0d0d0d 50%, #090909 100%);
-    color: #f5f5f5;
-    letter-spacing: 0.01em;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-weight: var(--font-weight-regular);
+    letter-spacing: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0;
   }
 
   a {
@@ -94,21 +97,18 @@
   }
 
   .surface-card {
-    border: 1px solid color-mix(in srgb, var(--color-border) 86%, black);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-surface) 94%, white),
-      color-mix(in srgb, var(--color-surface) 96%, black)
-    );
-    box-shadow: 0 24px 48px -40px rgba(0, 0, 0, 0.9);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: none;
   }
 
   .rounded-xl {
-    border-radius: 0.35rem;
+    border-radius: 0.375rem;
   }
 
   .rounded-2xl {
-    border-radius: 0.45rem;
+    border-radius: 0.375rem;
   }
 
   .rounded-3xl {
@@ -126,9 +126,9 @@
   .skeleton {
     background: linear-gradient(
       90deg,
-      color-mix(in srgb, #232323 90%, black),
-      color-mix(in srgb, #3a3a3a 92%, white),
-      color-mix(in srgb, #232323 90%, black)
+      var(--color-surface),
+      var(--color-surface-strong),
+      var(--color-surface)
     );
     background-size: 260% 100%;
     border-radius: 0.4rem;
@@ -161,6 +161,36 @@
     }
     100% {
       opacity: 1;
+    }
+  }
+
+  @keyframes virlo-fade-up {
+    0% {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes virlo-ticker {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  @keyframes virlo-logo-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
     }
   }
 }

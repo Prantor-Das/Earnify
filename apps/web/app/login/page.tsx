@@ -64,7 +64,7 @@ function LoginPageContent() {
 
         <aside className="surface-card rounded-sm p-8">
           <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-300">
-            Why Earnify
+            Why Virlo
           </h2>
           <ul className="mt-5 space-y-3 text-sm text-zinc-400">
             <li className="border border-zinc-800 bg-black/30 p-3">

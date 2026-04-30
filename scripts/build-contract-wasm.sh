@@ -2,10 +2,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CONTRACT_DIR="$ROOT_DIR/contracts/earnify-campaign"
-WASM_PATH="$CONTRACT_DIR/target/wasm32v1-none/release/earnify_campaign.wasm"
-OPT_WASM_PATH="$CONTRACT_DIR/target/wasm32v1-none/release/earnify_campaign.optimized.wasm"
-ARTIFACT_PATH="$CONTRACT_DIR/artifacts/earnify_campaign.optimized.wasm"
+CONTRACT_DIR="$ROOT_DIR/contracts/virlo-campaign"
+WASM_PATH="$CONTRACT_DIR/target/wasm32v1-none/release/virlo_campaign.wasm"
+OPT_WASM_PATH="$CONTRACT_DIR/target/wasm32v1-none/release/virlo_campaign.optimized.wasm"
+ARTIFACT_PATH="$CONTRACT_DIR/artifacts/virlo_campaign.optimized.wasm"
 
 export PATH="$HOME/.cargo/bin:$PATH"
 

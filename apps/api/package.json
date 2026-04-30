@@ -1,5 +1,5 @@
 {
-  "name": "@earnify/api",
+  "name": "@virlo/api",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -11,8 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@earnify/db": "workspace:*",
-    "@earnify/shared": "workspace:*",
+    "@virlo/db": "workspace:*",
+    "@virlo/shared": "workspace:*",
     "@prisma/adapter-pg": "^7.7.0",
     "@stellar/stellar-sdk": "^13.3.0",
     "@upstash/redis": "^1.37.0",

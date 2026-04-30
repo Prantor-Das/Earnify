@@ -9,7 +9,7 @@ import type {
   LeaderboardEntry,
   PostStatus,
   SocialPlatform,
-} from "@earnify/shared";
+} from "@virlo/shared";
 import { useParams } from "next/navigation";
 import { FundCampaignStep } from "../../../components/campaign/FundCampaignStep";
 import { BudgetBar } from "../../../components/BudgetBar";

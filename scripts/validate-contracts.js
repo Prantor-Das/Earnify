@@ -12,7 +12,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.join(__dirname, "..");
-const CONTRACT_DIR = path.join(ROOT_DIR, "contracts", "earnify-campaign");
+const CONTRACT_DIR = path.join(ROOT_DIR, "contracts", "virlo-campaign");
 const CARGO_TOML = path.join(CONTRACT_DIR, "Cargo.toml");
 const CONTRACT_LIB = path.join(CONTRACT_DIR, "src", "lib.rs");
 
@@ -52,7 +52,7 @@ console.log("✅ Soroban contract dependencies found");
 
 // Summary
 console.log("\n✅ Contract validation passed!");
-console.log(`   - Contract name: earnify-campaign`);
+console.log(`   - Contract name: virlo-campaign`);
 console.log(`   - Contract path: ${CONTRACT_DIR}`);
 console.log(`   - Ready for deployment\n`);
 

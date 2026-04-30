@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { ApiResponse, CampaignStatus } from "@earnify/shared";
+import type { ApiResponse, CampaignStatus } from "@virlo/shared";
 
 import { Badge, resolveBadges } from "../../../components/Badge";
 import { CampaignCard } from "../../../components/CampaignCard";

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-import { prisma, type SocialPlatform } from "@earnify/db";
+import { prisma, type SocialPlatform } from "@virlo/db";
 
 export interface EngagementData {
   views: number;

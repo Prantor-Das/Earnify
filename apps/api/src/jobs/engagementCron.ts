@@ -1,6 +1,6 @@
 import cron from "node-cron";
 
-import { CampaignStatus, prisma } from "@earnify/db";
+import { CampaignStatus, prisma } from "@virlo/db";
 
 import { getLeaderboard, refreshLeaderboard } from "../services/leaderboard.ts";
 import { emitLeaderboardUpdate } from "../websocket.ts";

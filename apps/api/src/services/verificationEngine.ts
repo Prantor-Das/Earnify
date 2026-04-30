@@ -4,7 +4,7 @@ import {
   PostStatus,
   SocialPlatform,
   prisma,
-} from "@earnify/db";
+} from "@virlo/db";
 import { load } from "cheerio";
 
 import { runAiDetection } from "./aiDetection.ts";

@@ -27,9 +27,9 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
 fi
 
 echo "→ Deploying migrations..."
-PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 pnpm --filter @earnify/db exec prisma migrate deploy --config prisma.config.ts
+PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 pnpm --filter @virlo/db exec prisma migrate deploy --config prisma.config.ts
 
 echo "→ Generating Prisma Client..."
-pnpm --filter @earnify/db db:generate
+pnpm --filter @virlo/db db:generate
 
 echo "✓ Database ready."

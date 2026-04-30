@@ -1,6 +1,6 @@
 import type { Server as HttpServer } from "node:http";
 
-import type { LeaderboardEntry } from "@earnify/shared";
+import type { LeaderboardEntry } from "@virlo/shared";
 import { Server } from "socket.io";
 
 let io: Server | null = null;

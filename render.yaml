@@ -1,15 +1,15 @@
 services:
   - type: web
-    name: earnify-api
+    name: virlo-api
     runtime: node
     plan: free
 
     buildCommand: >
       pnpm install &&
-      pnpm --filter @earnify/db db:generate &&
+      pnpm --filter @virlo/db db:generate &&
       pnpm build
 
-    startCommand: pnpm --filter @earnify/api start
+    startCommand: pnpm --filter @virlo/api start
 
     envVars:
       - key: NODE_ENV
@@ -18,7 +18,7 @@ services:
         value: "1"
       - key: DATABASE_URL
         fromDatabase:
-          name: earnify-db
+          name: virlo-db
           property: connectionString
       - key: STELLAR_ADMIN_SECRET
         sync: false # Set manually in Render dashboard
@@ -31,11 +31,11 @@ services:
       - key: STELLAR_NETWORK_PASSPHRASE
         value: Test SDF Network ; September 2015
       - key: SOROBAN_WASM_PATH
-        value: contracts/earnify-campaign/artifacts/earnify_campaign.optimized.wasm
+        value: contracts/virlo-campaign/artifacts/virlo_campaign.optimized.wasm
       - key: JWT_SECRET
         generateValue: true
       - key: WEB_ORIGIN
-        sync: false # Set to your deployed web origin, for example https://earnify.vercel.app
+        sync: false # Set to your deployed web origin, for example https://virlo.vercel.app
       - key: CORS_ORIGINS
         sync: false # Comma-separated allowed web origins
       - key: GOOGLE_CLIENT_ID
@@ -46,7 +46,7 @@ services:
         sync: false # https://<api-service>.onrender.com/api/auth/google/callback
 
   - type: postgres
-    name: earnify-db
+    name: virlo-db
     plan: free
 
     # Database auto-configured

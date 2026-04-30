@@ -1,8 +1,8 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 
-import { prisma, type UserRole } from "@earnify/db";
-import type { AuthUser } from "@earnify/shared";
+import { prisma, type UserRole } from "@virlo/db";
+import type { AuthUser } from "@virlo/shared";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -50,7 +50,7 @@ if (!googleClientId || !googleClientSecret) {
           }
 
           const name =
-            profile.displayName || email.split("@")[0] || "Earnify User";
+            profile.displayName || email.split("@")[0] || "Virlo User";
           const avatar = profile.photos?.[0]?.value ?? null;
           const existingUser = await prisma.user.findUnique({
             where: { email },

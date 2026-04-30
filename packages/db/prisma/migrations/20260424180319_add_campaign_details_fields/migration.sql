@@ -8,6 +8,7 @@
 
 ALTER TYPE "CampaignStatus" ADD VALUE 'DRAFT';
 ALTER TYPE "CampaignStatus" ADD VALUE 'COMPLETED';
+COMMIT;
 
 -- AlterTable
 ALTER TABLE "Campaign" ADD COLUMN     "budget" TEXT NOT NULL DEFAULT '0',

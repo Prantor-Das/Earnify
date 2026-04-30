@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { CampaignStatus, prisma } from "@earnify/db";
+import { CampaignStatus, prisma } from "@virlo/db";
 import * as StellarSdk from "@stellar/stellar-sdk";
 
 import {

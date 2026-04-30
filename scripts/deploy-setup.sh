@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-echo "🚀 Earnify Deployment Setup"
+echo "🚀 Virlo Deployment Setup"
 echo "============================"
 echo ""
 
@@ -102,16 +102,16 @@ case $choice in
         echo "5. Output: .next"
         echo ""
         echo "Environment variables:"
-        echo "  NEXT_PUBLIC_API_BASE_URL: https://api.earnify.com"
+        echo "  NEXT_PUBLIC_API_BASE_URL: https://api.virlo.com"
         ;;
     2)
         echo -e "${BLUE}📦 Render Backend Setup${NC}"
         echo "1. Go to https://render.com"
         echo "2. New Web Service → GitHub"
         echo "3. Import repository"
-        echo "4. Name: earnify-api"
-        echo "5. Build: pnpm install && pnpm --filter @earnify/db db:generate && pnpm build"
-        echo "6. Start: pnpm --filter @earnify/api start"
+        echo "4. Name: virlo-api"
+        echo "5. Build: pnpm install && pnpm --filter @virlo/db db:generate && pnpm build"
+        echo "6. Start: pnpm --filter @virlo/api start"
         echo ""
         echo "Use render.yaml config in project root"
         ;;
@@ -122,7 +122,7 @@ case $choice in
         echo "3. Framework detection should pick up Node.js"
         echo "4. Check railway.json config"
         echo ""
-        echo "Start command: pnpm --filter @earnify/api start"
+        echo "Start command: pnpm --filter @virlo/api start"
         ;;
     4)
         echo -e "${BLUE}📦 Vercel + Render Setup${NC}"

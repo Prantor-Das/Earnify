@@ -1,6 +1,6 @@
 import type { Response } from "express";
 
-import type { ApiResponse } from "@earnify/shared";
+import type { ApiResponse } from "@virlo/shared";
 
 function defaultCodeForStatus(status: number) {
   if (status === 400) {

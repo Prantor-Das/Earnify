@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { LeaderboardEntry, SocialPlatform } from "@earnify/shared";
+import type { LeaderboardEntry, SocialPlatform } from "@virlo/shared";
 import { io, type Socket } from "socket.io-client";
 
 import { Badge, resolveBadges } from "./Badge";

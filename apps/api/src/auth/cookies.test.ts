@@ -78,11 +78,11 @@ describe("auth cookie helpers", () => {
   it("uses SameSite none for deployed frontend and API on different hosts", () => {
     const sameSite = inferCookieSameSite(
       makeRequest({
-        host: "earnify-api.onrender.com",
+        host: "virlo-api.onrender.com",
         protocol: "https",
         secure: true,
       }),
-      "https://earnify-web.vercel.app/dashboard",
+      "https://virlo-web.vercel.app/dashboard",
     );
 
     expect(sameSite).toBe("none");
@@ -93,7 +93,7 @@ describe("auth cookie helpers", () => {
 
     const sameSite = inferCookieSameSite(
       makeRequest({
-        host: "earnify-yqyr.onrender.com",
+        host: "virlo-yqyr.onrender.com",
         protocol: "https",
         secure: true,
       }),
@@ -107,11 +107,11 @@ describe("auth cookie helpers", () => {
 
     const sameSite = inferCookieSameSite(
       makeRequest({
-        host: "earnify-api.onrender.com",
+        host: "virlo-api.onrender.com",
         protocol: "https",
         secure: true,
       }),
-      "https://earnify-web.vercel.app/dashboard",
+      "https://virlo-web.vercel.app/dashboard",
     );
 
     expect(sameSite).toBe("strict");
@@ -124,11 +124,11 @@ describe("auth cookie helpers", () => {
 
   it("marks cross-site production cookies secure", () => {
     process.env.WEB_AUTH_SUCCESS_REDIRECT =
-      "https://earnify-web.vercel.app/dashboard";
+      "https://virlo-web.vercel.app/dashboard";
 
     const options = getCookieOptions(
       makeRequest({
-        host: "earnify-api.onrender.com",
+        host: "virlo-api.onrender.com",
         protocol: "https",
         forwardedProto: "https",
       }),
@@ -143,10 +143,10 @@ describe("auth cookie helpers", () => {
   });
 
   it("builds a dashboard redirect from WEB_ORIGIN when no explicit redirect is set", () => {
-    process.env.WEB_ORIGIN = "https://earnify-web.vercel.app";
+    process.env.WEB_ORIGIN = "https://virlo-web.vercel.app";
 
     expect(getWebAuthSuccessRedirect()).toBe(
-      "https://earnify-web.vercel.app/dashboard",
+      "https://virlo-web.vercel.app/dashboard",
     );
   });
 });

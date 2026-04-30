@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm --filter @earnify/web build",
+  "buildCommand": "pnpm --filter @virlo/web build",
   "outputDirectory": ".next",
   "framework": "nextjs",
   "git": {

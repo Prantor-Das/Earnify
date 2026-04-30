@@ -4,8 +4,9 @@ import { AppShell } from "../components/AppShell";
 import "../styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "Earnify",
-  description: "Social media marketing platform monorepo starter",
+  title: "Virlo | Get paid for real influence",
+  description:
+    "Performance campaigns for founders and creators, verified through social engagement and paid on Stellar.",
 };
 
 export default function RootLayout({

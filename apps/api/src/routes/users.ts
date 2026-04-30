@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { prisma } from "@earnify/db";
+import { prisma } from "@virlo/db";
 import * as StellarSdk from "@stellar/stellar-sdk";
 
 import { requireAuth } from "../../middleware/auth.ts";

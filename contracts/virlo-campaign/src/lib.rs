@@ -19,7 +19,7 @@ enum DataKey {
 }
 
 #[contract]
-pub struct EarnifyCampaignContract;
+pub struct VirloCampaignContract;
 
 fn active_symbol(env: &Env) -> Symbol {
     Symbol::new(env, "ACTIVE")
@@ -103,7 +103,7 @@ fn payout_for(scores: &Map<Address, i128>, creator: &Address, remaining_budget: 
 }
 
 #[contractimpl]
-impl EarnifyCampaignContract {
+impl VirloCampaignContract {
     pub fn initialize(env: Env, founder: Address, admin: Address, total_budget: i128) {
         if env.storage().instance().has(&DataKey::Founder) {
             panic!("already_initialized");
@@ -355,7 +355,7 @@ mod tests {
     use soroban_sdk::{Address, Env};
 
     fn setup_contract(env: &Env) -> (Address, Address, Address) {
-        let contract_id = env.register(EarnifyCampaignContract, ());
+        let contract_id = env.register(VirloCampaignContract, ());
         let founder = Address::generate(env);
         let admin = Address::generate(env);
 
@@ -374,9 +374,9 @@ mod tests {
         env.mock_all_auths();
 
         let founder = Address::generate(&env);
-        let contract_id = env.register(EarnifyCampaignContract, ());
+        let contract_id = env.register(VirloCampaignContract, ());
 
-        let client = EarnifyCampaignContractClient::new(&env, &contract_id);
+        let client = VirloCampaignContractClient::new(&env, &contract_id);
 
         client.initialize(&founder, &founder, &1_000_i128);
 
@@ -394,9 +394,9 @@ mod tests {
         let founder = Address::generate(&env);
         let admin = Address::generate(&env);
         let creator = Address::generate(&env);
-        let contract_id = env.register(EarnifyCampaignContract, ());
+        let contract_id = env.register(VirloCampaignContract, ());
 
-        let client = EarnifyCampaignContractClient::new(&env, &contract_id);
+        let client = VirloCampaignContractClient::new(&env, &contract_id);
         client.initialize(&founder, &admin, &1_000_i128);
 
         client.update_score(&admin, &creator, &250_i128);
@@ -414,8 +414,8 @@ mod tests {
         let creator1 = Address::generate(&env);
         let creator2 = Address::generate(&env);
         let creator3 = Address::generate(&env);
-        let contract_id = env.register(EarnifyCampaignContract, ());
-        let client = EarnifyCampaignContractClient::new(&env, &contract_id);
+        let contract_id = env.register(VirloCampaignContract, ());
+        let client = VirloCampaignContractClient::new(&env, &contract_id);
 
         client.initialize(&founder, &admin, &1000_i128);
 
@@ -439,8 +439,8 @@ mod tests {
 
         let founder = Address::generate(&env);
         let admin = Address::generate(&env);
-        let contract_id = env.register(EarnifyCampaignContract, ());
-        let client = EarnifyCampaignContractClient::new(&env, &contract_id);
+        let contract_id = env.register(VirloCampaignContract, ());
+        let client = VirloCampaignContractClient::new(&env, &contract_id);
 
         client.initialize(&founder, &admin, &750_i128);
 

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CONTRACT_DIR="$ROOT_DIR/contracts/earnify-campaign"
+CONTRACT_DIR="$ROOT_DIR/contracts/virlo-campaign"
 ENV_FILE="$ROOT_DIR/.env"
 
 if [[ -z "${STELLAR_ADMIN_SECRET:-}" && -f "$ENV_FILE" ]]; then
@@ -35,8 +35,8 @@ echo "Building Soroban contract..."
 cd "$CONTRACT_DIR"
 stellar contract build
 
-WASM_PATH="$CONTRACT_DIR/target/wasm32v1-none/release/earnify_campaign.wasm"
-OPT_WASM_PATH="$CONTRACT_DIR/target/wasm32v1-none/release/earnify_campaign.optimized.wasm"
+WASM_PATH="$CONTRACT_DIR/target/wasm32v1-none/release/virlo_campaign.wasm"
+OPT_WASM_PATH="$CONTRACT_DIR/target/wasm32v1-none/release/virlo_campaign.optimized.wasm"
 
 echo "Optimizing WASM..."
 stellar contract optimize --wasm "$WASM_PATH"
@@ -71,13 +71,13 @@ if [[ -f "$ENV_FILE" ]]; then
     printf "\nSOROBAN_CONTRACT_ID=%s\n" "$CONTRACT_ID" >>"$ENV_FILE"
   fi
   if grep -q '^SOROBAN_WASM_PATH=' "$ENV_FILE"; then
-    sed -i.bak "s|^SOROBAN_WASM_PATH=.*|SOROBAN_WASM_PATH=contracts/earnify-campaign/target/wasm32v1-none/release/earnify_campaign.optimized.wasm|" "$ENV_FILE"
+    sed -i.bak "s|^SOROBAN_WASM_PATH=.*|SOROBAN_WASM_PATH=contracts/virlo-campaign/target/wasm32v1-none/release/virlo_campaign.optimized.wasm|" "$ENV_FILE"
   else
-    printf "SOROBAN_WASM_PATH=contracts/earnify-campaign/target/wasm32v1-none/release/earnify_campaign.optimized.wasm\n" >>"$ENV_FILE"
+    printf "SOROBAN_WASM_PATH=contracts/virlo-campaign/target/wasm32v1-none/release/virlo_campaign.optimized.wasm\n" >>"$ENV_FILE"
   fi
 else
   printf "SOROBAN_CONTRACT_ID=%s\n" "$CONTRACT_ID" >"$ENV_FILE"
-  printf "SOROBAN_WASM_PATH=contracts/earnify-campaign/target/wasm32v1-none/release/earnify_campaign.optimized.wasm\n" >>"$ENV_FILE"
+  printf "SOROBAN_WASM_PATH=contracts/virlo-campaign/target/wasm32v1-none/release/virlo_campaign.optimized.wasm\n" >>"$ENV_FILE"
 fi
 
 echo "Updated .env with SOROBAN_CONTRACT_ID=$CONTRACT_ID"

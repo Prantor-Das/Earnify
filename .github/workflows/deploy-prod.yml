@@ -88,8 +88,8 @@ jobs:
           DATABASE_URL: ${{ env.PROD_DATABASE_URL }}
           PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: "1"
         run: |
-          pnpm --filter @earnify/db db:generate
-          pnpm --filter @earnify/db db:deploy
+          pnpm --filter @virlo/db db:generate
+          pnpm --filter @virlo/db db:deploy
 
       - name: Skip database migrations
         if: env.PROD_DATABASE_URL == ''

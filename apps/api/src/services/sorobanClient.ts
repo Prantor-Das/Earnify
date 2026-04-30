@@ -19,11 +19,11 @@ const networkPassphrase =
 const adminSecret = process.env.STELLAR_ADMIN_SECRET;
 const configuredWasmPath =
   process.env.SOROBAN_WASM_PATH ??
-  "contracts/earnify-campaign/artifacts/earnify_campaign.optimized.wasm";
+  "contracts/virlo-campaign/artifacts/virlo_campaign.optimized.wasm";
 
 const serviceDir = dirname(fileURLToPath(import.meta.url));
 const repoRootDir = resolve(serviceDir, "../../../../");
-const contractDir = join(repoRootDir, "contracts/earnify-campaign");
+const contractDir = join(repoRootDir, "contracts/virlo-campaign");
 
 class SorobanConfigError extends Error {
   readonly status = 503;
@@ -46,23 +46,23 @@ function normalizeCandidatePath(pathValue: string) {
 function getWasmCandidates() {
   const normalizedConfiguredPath = normalizeCandidatePath(configuredWasmPath);
   const filename =
-    configuredWasmPath.split("/").pop() ?? "earnify_campaign.optimized.wasm";
+    configuredWasmPath.split("/").pop() ?? "virlo_campaign.optimized.wasm";
 
   return [
     normalizedConfiguredPath,
-    join(contractDir, "artifacts/earnify_campaign.optimized.wasm"),
+    join(contractDir, "artifacts/virlo_campaign.optimized.wasm"),
     join(
       contractDir,
-      "target/wasm32v1-none/release/earnify_campaign.optimized.wasm",
+      "target/wasm32v1-none/release/virlo_campaign.optimized.wasm",
     ),
-    join(contractDir, "target/wasm32v1-none/release/earnify_campaign.wasm"),
+    join(contractDir, "target/wasm32v1-none/release/virlo_campaign.wasm"),
     join(
       contractDir,
-      "target/wasm32-unknown-unknown/release/earnify_campaign.optimized.wasm",
+      "target/wasm32-unknown-unknown/release/virlo_campaign.optimized.wasm",
     ),
     join(
       contractDir,
-      "target/wasm32-unknown-unknown/release/earnify_campaign.wasm",
+      "target/wasm32-unknown-unknown/release/virlo_campaign.wasm",
     ),
     // Last resort: keep original filename under canonical v1 target dir
     join(contractDir, "target/wasm32v1-none/release", filename),

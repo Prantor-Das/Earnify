@@ -45,8 +45,8 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
   exit 1
 fi
 
-PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 pnpm --filter @earnify/db exec prisma migrate deploy --config prisma.config.ts
-pnpm --filter @earnify/db db:seed
+PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 pnpm --filter @virlo/db exec prisma migrate deploy --config prisma.config.ts
+pnpm --filter @virlo/db db:seed
 
 cleanup() {
   kill "$API_PID" "$WEB_PID" >/dev/null 2>&1 || true

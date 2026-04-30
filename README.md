@@ -1,4 +1,4 @@
-# Earnify
+# Virlo
 
 **Turn Social Media Marketing Into Fair, Transparent Earnings**
 
@@ -31,13 +31,14 @@
 ### The Problem
 
 Traditional social media marketing is broken:
+
 - **Influencers:** Opaque pricing, fake followers, unpredictable ROI
 - **Creators:** Unfair payment structures, delayed payouts, platform fees
 - **Founders:** Difficulty measuring authentic engagement, high agency costs
 
 ### Our Solution
 
-Earnify creates a **transparent, performance-based marketing ecosystem** where:
+Virlo creates a **transparent, performance-based marketing ecosystem** where:
 
 1. **Founders** deposit campaign budgets into Stellar smart contracts
 2. **Creators** post authentic content on their social channels
@@ -248,7 +249,7 @@ enum PayoutStatus {
 
 ### Smart Contract Architecture (Soroban)
 
-**Contract: `earnify-campaign`**
+**Contract: `virlo-campaign`**
 
 ```rust
 // Core Functions
@@ -299,6 +300,7 @@ struct Post {
 ### Data Flow
 
 **Campaign Creation Flow:**
+
 ```
 User (Founder) → Frontend → API → Database → Soroban Contract
                                       ↓
@@ -308,6 +310,7 @@ User (Founder) → Frontend → API → Database → Soroban Contract
 ```
 
 **Engagement & Payout Flow:**
+
 ```
 Creator Posts → API Receives URL → Engagement Fetcher
                                          ↓
@@ -331,6 +334,7 @@ Creator Posts → API Receives URL → Engagement Fetcher
 ## Tech Stack
 
 ### Frontend
+
 - **Framework:** Next.js 16 (App Router)
 - **Language:** TypeScript
 - **Styling:** TailwindCSS + Custom Design System
@@ -340,6 +344,7 @@ Creator Posts → API Receives URL → Engagement Fetcher
 - **Forms:** React Hook Form + Zod Validation
 
 ### Backend
+
 - **Runtime:** Node.js 20+
 - **Framework:** Express 5
 - **Language:** TypeScript
@@ -350,17 +355,20 @@ Creator Posts → API Receives URL → Engagement Fetcher
 - **WebSockets:** Socket.IO
 
 ### Blockchain
+
 - **Network:** Stellar (Testnet for MVP)
 - **Smart Contracts:** Soroban (Rust)
 - **SDK:** @stellar/stellar-sdk v13
 - **Wallet:** Freighter Integration
 
 ### Database & Storage
+
 - **Primary DB:** PostgreSQL (Neon)
 - **Caching:** Redis (Upstash)
 - **File Storage:** Cloudinary / AWS S3 (future)
 
 ### External APIs
+
 - **AI/ML:** Groq LLM (Content Verification)
 - **Social APIs:**
   - X (Twitter) API v2
@@ -369,6 +377,7 @@ Creator Posts → API Receives URL → Engagement Fetcher
 - **Web Scraping:** Cheerio + Axios
 
 ### DevOps & Deployment
+
 - **Package Manager:** pnpm (Monorepo)
 - **Monorepo Tool:** pnpm Workspaces
 - **CI/CD:** GitHub Actions
@@ -394,25 +403,29 @@ Creator Posts → API Receives URL → Engagement Fetcher
 ### Installation
 
 1. **Clone Repository**
+
 ```bash
-git clone https://github.com/yourusername/earnify.git
-cd earnify
+git clone https://github.com/yourusername/virlo.git
+cd virlo
 ```
 
 2. **Install Dependencies**
+
 ```bash
 pnpm install
 ```
 
 3. **Setup Environment Variables**
+
 ```bash
 cp .env.example .env
 ```
 
 Edit `.env` with your credentials:
+
 ```env
 # Database
-DATABASE_URL="postgresql://user:password@host:5432/earnify?sslmode=require"
+DATABASE_URL="postgresql://user:password@host:5432/virlo?sslmode=require"
 
 # Stellar
 STELLAR_NETWORK="testnet"
@@ -444,18 +457,21 @@ PORT=5000
 ```
 
 4. **Run Setup Script**
+
 ```bash
 chmod +x scripts/setup.sh
 ./scripts/setup.sh
 ```
 
 This will:
+
 - Generate Prisma client
 - Run database migrations
 - Seed initial data
 - Start development servers
 
 5. **Deploy Smart Contract** (Optional - for testing)
+
 ```bash
 chmod +x scripts/deploy-contract.sh
 ./scripts/deploy-contract.sh
@@ -488,7 +504,7 @@ pnpm soroban:invoke <contractId> <method> <secret> '["arg1", arg2]'
 ### Project Structure
 
 ```
-earnify/
+virlo/
 ├── apps/
 │   ├── api/                 # Express backend
 │   │   ├── src/
@@ -503,7 +519,7 @@ earnify/
 │       ├── styles/          # Global styles
 │       └── package.json
 ├── contracts/
-│   └── earnify-campaign/    # Soroban smart contracts
+│   └── virlo-campaign/    # Soroban smart contracts
 │       └── src/lib.rs
 ├── packages/
 │   ├── db/                  # Prisma schema & migrations
@@ -520,6 +536,7 @@ earnify/
 **Platform URL:** []()
 
 **Deployment Details:**
+
 - **Frontend:** Deployed on Vercel (Next.js App)
 - **Backend API:** Deployed on Vercel Functions
 - **Database:** PostgreSQL on Neon
@@ -527,6 +544,7 @@ earnify/
 - **Smart Contracts:** Soroban (Stellar)
 
 **Test Credentials:**
+
 - Role: Creator/Founder (OAuth via Google)
 - Network: Stellar Testnet
 - Explorer: [Stellar Expert](https://stellar.expert/explorer/testnet)
@@ -538,6 +556,7 @@ earnify/
 **Full MVP Demo:** [Watch on YouTube]()
 
 **Walkthrough Includes:**
+
 1. Creator registration & wallet connection
 2. Founder campaign creation with budget deposit
 3. Posting content on X/LinkedIn/Instagram
@@ -559,9 +578,11 @@ Below are 5+ verified Stellar testnet wallet addresses.
 - `GCRZFG2VFVFRP5454SMUETCNXHWI2DIMVTPF7YAHCCKQTVV64VXLEAIO`
 
 **Smart Contract Address:**
+
 - **Contract ID:** `CBPHL5FJUTF4MFG46LMIM6QB6CCSQYPECB7XPF2LTWXL4LWRQEYXRTJN`
 - **Campaign Contract ID(example):** `CC6XIDL2Y4653227FROEM2YX7Y5ANZBNMCAFQ4JHCZ7QY5M53DAYUZF5`
 - Each campaign has a different contract ID
+
 ---
 
 ## User Feedback
@@ -569,41 +590,50 @@ Below are 5+ verified Stellar testnet wallet addresses.
 **Feedback Report:** [View on Google Docs →](https://docs.google.com/spreadsheets/d/1-Q9381iqetqjVIQmu8F8rM13YSdMmEJNq9iHOGsi-KA/edit?usp=sharing)
 
 ## Future Roadmap & Development Plans
- 
+
 Our roadmap focuses on scaling the platform, enhancing user experience, and expanding blockchain capabilities.
- 
-#### 1. Platform Expansion & Integrations  
+
+#### 1. Platform Expansion & Integrations
+
 Broaden support beyond current social platforms.  
-**Key Features:**  
-- TikTok, YouTube, Reddit, Medium/Substack integrations  
-- Unified engagement tracking across platforms  
+**Key Features:**
+
+- TikTok, YouTube, Reddit, Medium/Substack integrations
+- Unified engagement tracking across platforms
 - Standardized real-time webhook system  
-**Expected Impact:** 3x platform coverage, expanded creator ecosystem  
+  **Expected Impact:** 3x platform coverage, expanded creator ecosystem
 
-#### 2. Performance & Real-Time Infrastructure  
+#### 2. Performance & Real-Time Infrastructure
+
 Upgrade backend for faster, scalable performance.  
-**Key Features:**  
-- Event-driven architecture and microservices  
-- Live dashboard updates with SSE/WebSockets  
+**Key Features:**
+
+- Event-driven architecture and microservices
+- Live dashboard updates with SSE/WebSockets
 - Redis caching, CDN, and database optimization  
-**Expected Impact:** 90% lower latency, real-time engagement tracking  
+  **Expected Impact:** 90% lower latency, real-time engagement tracking
 
-#### 3. AI-Powered Automation  
+#### 3. AI-Powered Automation
+
 Use AI/ML to improve matching, fraud detection, and insights.  
-**Key Features:**  
-- Smart campaign-creator matching  
-- Fraud detection and compliance automation  
-- Predictive analytics for earnings/content performance  
-**Expected Impact:** Better campaign quality and higher fraud prevention accuracy  
+**Key Features:**
 
-#### 4. Blockchain, Mobile & Enterprise Growth  
+- Smart campaign-creator matching
+- Fraud detection and compliance automation
+- Predictive analytics for earnings/content performance  
+  **Expected Impact:** Better campaign quality and higher fraud prevention accuracy
+
+#### 4. Blockchain, Mobile & Enterprise Growth
+
 Expand platform accessibility and monetization.  
-**Key Features:**  
-- Native mobile apps for iOS/Android  
-- Utility token and governance launch  
-- Multi-chain wallet/blockchain support  
+**Key Features:**
+
+- Native mobile apps for iOS/Android
+- Utility token and governance launch
+- Multi-chain wallet/blockchain support
 - White-label enterprise platform  
-**Expected Impact:** Higher user retention, enterprise adoption, Web3 market expansion  
+  **Expected Impact:** Higher user retention, enterprise adoption, Web3 market expansion
+
 ---
 
 ## Smart Contract Details
@@ -611,6 +641,7 @@ Expand platform accessibility and monetization.
 ### Contract Functions
 
 **View Functions (No Transaction Fees):**
+
 ```typescript
 // Get campaign details
 getCampaign(campaignId: string): Campaign
@@ -623,6 +654,7 @@ getTotalPayouts(campaignId: string): number
 ```
 
 **State-Changing Functions (Requires Gas):**
+
 ```typescript
 // Initialize contract
 initialize(admin: Address)
@@ -670,15 +702,17 @@ resumeCampaign(campaignId: string)
 ## API Documentation
 
 ### Base URL
+
 ```
-Production: https://api.earnify.app
-Testnet: https://api-testnet.earnify.app
+Production: https://api.virlo.app
+Testnet: https://api-testnet.virlo.app
 Local: http://localhost:3000
 ```
 
 ### Authentication
 
 All protected endpoints require JWT token:
+
 ```http
 Authorization: Bearer <your_jwt_token>
 ```
@@ -688,6 +722,7 @@ Authorization: Bearer <your_jwt_token>
 #### Authentication
 
 **POST** `/auth/google`
+
 ```json
 // Login via Google OAuth
 Response: {
@@ -697,6 +732,7 @@ Response: {
 ```
 
 **POST** `/auth/logout`
+
 ```json
 // Logout user (clears session)
 Response: { "success": true }
@@ -707,6 +743,7 @@ Response: { "success": true }
 #### Campaigns
 
 **GET** `/campaigns`
+
 ```http
 Query Params:
   - status: active|completed|paused
@@ -722,6 +759,7 @@ Response: {
 ```
 
 **GET** `/campaigns/:id`
+
 ```json
 // Get campaign details
 Response: {
@@ -732,6 +770,7 @@ Response: {
 ```
 
 **POST** `/campaigns` (Founder only)
+
 ```json
 Request: {
   "title": "Launch Campaign for Product X",
@@ -751,6 +790,7 @@ Response: {
 ```
 
 **PATCH** `/campaigns/:id` (Founder only)
+
 ```json
 // Update campaign (only if not started)
 Request: { "title": "New Title" }
@@ -762,6 +802,7 @@ Response: { "campaign": {...} }
 #### Posts
 
 **GET** `/posts`
+
 ```http
 Query Params:
   - campaignId: string
@@ -776,6 +817,7 @@ Response: {
 ```
 
 **POST** `/posts`
+
 ```json
 // Submit post for campaign
 Request: {
@@ -791,6 +833,7 @@ Response: {
 ```
 
 **GET** `/posts/:id/engagement`
+
 ```json
 // Get live engagement metrics
 Response: {
@@ -808,6 +851,7 @@ Response: {
 #### Dashboard
 
 **GET** `/dashboard/creator`
+
 ```json
 // Creator dashboard stats
 Response: {
@@ -821,6 +865,7 @@ Response: {
 ```
 
 **GET** `/dashboard/founder`
+
 ```json
 // Founder dashboard stats
 Response: {
@@ -838,6 +883,7 @@ Response: {
 #### Leaderboard
 
 **GET** `/leaderboard`
+
 ```http
 Query Params:
   - period: daily|weekly|monthly|all-time
@@ -890,17 +936,17 @@ This project is licensed under the **MIT License** - see [LICENSE](LICENSE) file
 
 ---
 
-**Report Bugs:** [GitHub Issues](https://github.com/yourusername/earnify/issues)
+**Report Bugs:** [GitHub Issues](https://github.com/yourusername/virlo/issues)
 
 ---
 
 <div align="center">
 
-**Built with ❤️ by the Earnify Team**
+**Built with ❤️ by the Virlo Team**
 
 [![Stellar](https://img.shields.io/badge/Powered%20by-Stellar-purple?style=for-the-badge)](https://stellar.org)
 [![Soroban](https://img.shields.io/badge/Smart%20Contracts-Soroban-blue?style=for-the-badge)](https://soroban.stellar.org)
 
-[⬆ Back to Top](#earnify-)
+[⬆ Back to Top](#virlo-)
 
 </div>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import type { ApiResponse } from "@earnify/shared";
+import type { ApiResponse } from "@virlo/shared";
 
 import { useWallet } from "../wallet/WalletProvider";
 

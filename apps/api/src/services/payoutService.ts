@@ -1,5 +1,5 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
-import { CampaignStatus, PayoutStatus, prisma } from "@earnify/db";
+import { CampaignStatus, PayoutStatus, prisma } from "@virlo/db";
 
 import { decryptSecretKey } from "./stellar.ts";
 import { emitPayoutUpdate } from "../websocket.ts";

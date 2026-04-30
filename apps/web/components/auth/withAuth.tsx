@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import type { UserRole } from "@earnify/shared";
+import type { UserRole } from "@virlo/shared";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "./useAuth";

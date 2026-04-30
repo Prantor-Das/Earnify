@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { CampaignStatus, prisma } from "@earnify/db";
+import { CampaignStatus, prisma } from "@virlo/db";
 
 import { requireAuth } from "../../middleware/auth.ts";
 import { sendError, sendSuccess } from "../utils/api-response.ts";
@@ -14,6 +14,35 @@ function toNumber(value: unknown) {
 
   return Number(value ?? 0);
 }
+
+dashboardRouter.get("/", async (_request, response) => {
+  const [paidOut, activeCampaigns, registeredCreators] = await Promise.all([
+    prisma.payout.aggregate({
+      where: {
+        status: "COMPLETED",
+      },
+      _sum: {
+        amount: true,
+      },
+    }),
+    prisma.campaign.count({
+      where: {
+        status: CampaignStatus.ACTIVE,
+      },
+    }),
+    prisma.user.count({
+      where: {
+        role: "USER",
+      },
+    }),
+  ]);
+
+  sendSuccess(response, {
+    totalXlmPaidOut: toNumber(paidOut._sum.amount),
+    activeCampaigns,
+    registeredCreators,
+  });
+});
 
 dashboardRouter.get("/earnings", requireAuth, async (request, response) => {
   if (!request.user) {

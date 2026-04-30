@@ -1,4 +1,4 @@
-type EarnifyBadgeType =
+type VirloBadgeType =
   | "Top Performer"
   | "Verified Creator"
   | "Viral Post"
@@ -14,12 +14,12 @@ type BadgeSignals = {
 };
 
 type BadgeProps = {
-  badge: EarnifyBadgeType;
+  badge: VirloBadgeType;
   compact?: boolean;
 };
 
 const badgeMeta: Record<
-  EarnifyBadgeType,
+  VirloBadgeType,
   {
     label: string;
     icon: string;
@@ -66,8 +66,8 @@ const badgeMeta: Record<
   },
 };
 
-function resolveBadges(signals: BadgeSignals): EarnifyBadgeType[] {
-  const badges: EarnifyBadgeType[] = [];
+function resolveBadges(signals: BadgeSignals): VirloBadgeType[] {
+  const badges: VirloBadgeType[] = [];
 
   if (signals.rank === 1) {
     badges.push("Top Performer");
@@ -109,4 +109,4 @@ function Badge({ badge, compact = false }: BadgeProps) {
 }
 
 export { Badge, resolveBadges };
-export type { EarnifyBadgeType };
+export type { VirloBadgeType };

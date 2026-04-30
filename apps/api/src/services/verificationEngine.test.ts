@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   mockAxiosGet: vi.fn(),
 }));
 
-vi.mock("@earnify/db", () => ({
+vi.mock("@virlo/db", () => ({
   CampaignStatus: {
     ACTIVE: "ACTIVE",
     PAUSED: "PAUSED",

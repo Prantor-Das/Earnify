@@ -3,8 +3,8 @@ import jwt from "jsonwebtoken";
 import passport from "passport";
 import type { SignOptions } from "jsonwebtoken";
 
-import { prisma } from "@earnify/db";
-import type { AuthUser } from "@earnify/shared";
+import { prisma } from "@virlo/db";
+import type { AuthUser } from "@virlo/shared";
 
 import { optionalAuth, requireAuth } from "../../middleware/auth.ts";
 import { getCookieOptions, getWebAuthSuccessRedirect } from "./cookies.ts";
@@ -14,7 +14,7 @@ const authRouter = Router();
 
 const jwtSecret = process.env.JWT_SECRET;
 const jwtExpiresIn = process.env.JWT_EXPIRES_IN ?? "7d";
-const jwtCookieName = process.env.JWT_COOKIE_NAME ?? "earnify_token";
+const jwtCookieName = process.env.JWT_COOKIE_NAME ?? "virlo_token";
 const webAuthSuccessRedirect = getWebAuthSuccessRedirect();
 
 function issueJwt(user: AuthUser) {

@@ -1,7 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import jwt from "jsonwebtoken";
 
-import type { ApiResponse, AuthUser, UserRole } from "@earnify/shared";
+import type { ApiResponse, AuthUser, UserRole } from "@virlo/shared";
 
 declare global {
   namespace Express {
@@ -19,7 +19,7 @@ type JwtPayload = {
 };
 
 const jwtSecret = process.env.JWT_SECRET;
-const jwtCookieName = process.env.JWT_COOKIE_NAME ?? "earnify_token";
+const jwtCookieName = process.env.JWT_COOKIE_NAME ?? "virlo_token";
 
 function unauthorized(response: Response) {
   const payload: ApiResponse<never> = {

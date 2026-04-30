@@ -1,7 +1,7 @@
 import { Router } from "express";
 
-import { CampaignStatus, PostStatus, prisma } from "@earnify/db";
-import type { SocialPlatform } from "@earnify/shared";
+import { CampaignStatus, PostStatus, prisma } from "@virlo/db";
+import type { SocialPlatform } from "@virlo/shared";
 
 import { requireAuth } from "../../middleware/auth.ts";
 import { calculateScore } from "../services/scoringEngine.ts";

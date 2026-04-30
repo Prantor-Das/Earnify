@@ -15,5 +15,5 @@ initWebsocket(server, allowedOrigins);
 startEngagementCron();
 
 server.listen(port, () => {
-  console.log(`Earnify API listening on port ${port}`);
+  console.log(`Virlo API listening on port ${port}`);
 });

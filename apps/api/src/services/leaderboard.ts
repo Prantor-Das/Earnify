@@ -1,5 +1,5 @@
-import { prisma } from "@earnify/db";
-import type { LeaderboardEntry, SocialPlatform } from "@earnify/shared";
+import { prisma } from "@virlo/db";
+import type { LeaderboardEntry, SocialPlatform } from "@virlo/shared";
 import { Redis } from "@upstash/redis";
 
 import { fetchEngagement } from "./engagementFetcher.ts";

@@ -1,10 +1,11 @@
-# Earnify Deployment Guide
+# Virlo Deployment Guide
 
-Complete guide for deploying Earnify to production with Vercel (frontend), Render/Railway (backend), and Soroban contracts on Stellar.
+Complete guide for deploying Virlo to production with Vercel (frontend), Render/Railway (backend), and Soroban contracts on Stellar.
 
 ---
 
 ## Table of Contents
+
 1. [Prerequisites](#prerequisites)
 2. [Database Setup](#database-setup)
 3. [Frontend Deployment (Vercel)](#frontend-deployment-vercel)
@@ -18,21 +19,25 @@ Complete guide for deploying Earnify to production with Vercel (frontend), Rende
 ## Prerequisites
 
 ### Required Tools
+
 - **pnpm** (already in use)
 - **Rust** & **Soroban CLI** for contract deployment
+
   ```bash
   # Install Rust
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-  
+
   # Add wasm32v1-none target
   rustup target add wasm32v1-none
-  
+
   # Install Stellar CLI
   cargo install --locked stellar-cli --features opt
   ```
+
 - **Node.js 18+** for local development
 
 ### Accounts Needed
+
 - **Neon Postgres** (free tier available) - Database
 - **Vercel** - Frontend hosting
 - **Render** or **Railway** - Backend hosting
@@ -61,6 +66,7 @@ Complete guide for deploying Earnify to production with Vercel (frontend), Rende
    ```
 
 ### Option 2: Railway/Render Postgres
+
 Both platforms offer free trial PostgreSQL instances.
 
 ---
@@ -70,9 +76,10 @@ Both platforms offer free trial PostgreSQL instances.
 ### 1. Prepare Web App
 
 Update [apps/web/vercel.json](apps/web/vercel.json):
+
 ```json
 {
-  "buildCommand": "pnpm --filter @earnify/web build",
+  "buildCommand": "pnpm --filter @virlo/web build",
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs",
   "env": {
@@ -86,6 +93,7 @@ Update [apps/web/vercel.json](apps/web/vercel.json):
 ### 2. Deploy to Vercel
 
 **Option A: CLI**
+
 ```bash
 cd apps/web
 npm i -g vercel
@@ -93,6 +101,7 @@ vercel --prod
 ```
 
 **Option B: GitHub Integration**
+
 1. Push code to GitHub
 2. Go to [vercel.com](https://vercel.com)
 3. Import repository
@@ -105,7 +114,7 @@ vercel --prod
 Set in Vercel dashboard:
 
 ```
-NEXT_PUBLIC_API_URL=https://api.earnify.com
+NEXT_PUBLIC_API_URL=https://api.virlo.com
 NEXT_PUBLIC_STRIPE_KEY=[if applicable]
 [other public vars]
 ```
@@ -122,22 +131,26 @@ NEXT_PUBLIC_STRIPE_KEY=[if applicable]
 ### Option 1: Render (Free Tier)
 
 **Step 1: Create Web Service**
+
 1. Go to [render.com](https://render.com)
 2. Click "New +" → "Web Service"
 3. Connect GitHub repository
 4. Configure:
    - **Build Command:** `pnpm install && pnpm build`
-   - **Start Command:** `pnpm --filter @earnify/api start`
+   - **Start Command:** `pnpm --filter @virlo/api start`
    - **Root Directory:** (leave empty - monorepo)
 
 **Step 2: Set Environment Variables**
+
 - See [Environment Variables](#environment-variables) section
 - Important: Include `DATABASE_URL` from Neon
 
 **Step 3: Database Connection**
+
 - Link to PostgreSQL instance or use Neon URL directly
 
 **Step 4: Deploy**
+
 - Push to GitHub → automatic deployment
 
 ---
@@ -145,12 +158,15 @@ NEXT_PUBLIC_STRIPE_KEY=[if applicable]
 ### Option 2: Railway (Free Trial)
 
 **Step 1: Create Service**
+
 1. Go to [railway.app](https://railway.app)
 2. Create new project
 3. Add GitHub repository
 
 **Step 2: Configuration**
+
 - Create `railway.json`:
+
 ```json
 {
   "build": {
@@ -161,11 +177,13 @@ NEXT_PUBLIC_STRIPE_KEY=[if applicable]
 ```
 
 **Step 3: Set Variables**
+
 - Add all environment variables in Railway dashboard
 
 **Step 4: Configure Start Command**
+
 ```
-pnpm --filter @earnify/api start
+pnpm --filter @virlo/api start
 ```
 
 ---
@@ -189,7 +207,8 @@ Your backend needs contract-related dependencies. Update backend `package.json`:
 ### Important Files for Deployment
 
 Backend must include/access:
-- `contracts/earnify-campaign/` (Rust contract source)
+
+- `contracts/virlo-campaign/` (Rust contract source)
 - `scripts/deploy-contract.sh`
 - Environment variables for contract deployment
 
@@ -214,19 +233,19 @@ Add to [apps/api/package.json](apps/api/package.json):
 Create [scripts/validate-contracts.js](scripts/validate-contracts.js):
 
 ```javascript
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CONTRACT_DIR = path.join(__dirname, '../contracts/earnify-campaign');
+const CONTRACT_DIR = path.join(__dirname, "../contracts/virlo-campaign");
 
 if (!fs.existsSync(CONTRACT_DIR)) {
-  console.error('❌ Contract directory not found');
+  console.error("❌ Contract directory not found");
   process.exit(1);
 }
 
-console.log('✅ Contracts available for deployment');
+console.log("✅ Contracts available for deployment");
 console.log(`Contract path: ${CONTRACT_DIR}`);
 ```
 
@@ -235,21 +254,24 @@ console.log(`Contract path: ${CONTRACT_DIR}`);
 ## Environment Variables
 
 ### Database
+
 ```
-DATABASE_URL=postgresql://user:pass@neon.techdb/earnify
+DATABASE_URL=postgresql://user:pass@neon.techdb/virlo
 PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1
 ```
 
 ### Frontend (Vercel)
+
 ```
-NEXT_PUBLIC_API_URL=https://api.earnify.com
-NEXT_PUBLIC_APP_NAME=Earnify
+NEXT_PUBLIC_API_URL=https://api.virlo.com
+NEXT_PUBLIC_APP_NAME=Virlo
 ```
 
 ### Backend (Render/Railway)
+
 ```
 NODE_ENV=production
-DATABASE_URL=postgresql://user:pass@db-host/earnify
+DATABASE_URL=postgresql://user:pass@db-host/virlo
 PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1
 
 # Stellar/Soroban (for contract deployment)
@@ -260,19 +282,21 @@ SOROBAN_FRIENDBOT_URL=https://friendbot.stellar.org
 
 # API Configuration
 API_PORT=3001
-API_URL=https://api.earnify.com
-CORS_ORIGIN=https://earnify.vercel.app
+API_URL=https://api.virlo.com
+CORS_ORIGIN=https://virlo.vercel.app
 ```
 
 ### Secrets Management
 
 **Store securely:**
+
 - `STELLAR_ADMIN_SECRET` - Never commit
 - `DATABASE_URL` - Use platform's secret manager
 - JWT secrets
 - API keys
 
 Use platform-specific secret management:
+
 - **Vercel:** Environment variables (encrypted)
 - **Render:** Secret files
 - **Railway:** Environment variables
@@ -293,12 +317,13 @@ DATABASE_URL="prod-connection-string" ./scripts/db-deploy.sh
 Or add to deployment scripts automatically:
 
 **Render pre-deployment script:**
+
 ```bash
 #!/bin/bash
 set -euo pipefail
 export DATABASE_URL="${DATABASE_URL}"
 ./scripts/db-deploy.sh
-pnpm --filter @earnify/db db:seed
+pnpm --filter @virlo/db db:seed
 ```
 
 ### 2. Contract Deployment
@@ -316,18 +341,21 @@ Store returned `SOROBAN_CONTRACT_ID` in backend environment variables.
 ### 3. Verify Deployments
 
 **Frontend:**
+
 ```bash
-curl https://earnify.vercel.app
+curl https://virlo.vercel.app
 # Check 200 response
 ```
 
 **Backend:**
+
 ```bash
-curl https://api.earnify.com/health
+curl https://api.virlo.com/health
 # Should return health status
 ```
 
 **Database:**
+
 ```bash
 # From backend shell
 psql $DATABASE_URL -c "SELECT version();"
@@ -335,8 +363,8 @@ psql $DATABASE_URL -c "SELECT version();"
 
 ### 4. Setup Domain Names
 
-- **Frontend:** `earnify.com` → Vercel
-- **Backend:** `api.earnify.com` → Render/Railway
+- **Frontend:** `virlo.com` → Vercel
+- **Backend:** `api.virlo.com` → Render/Railway
 - Configure DNS records (A, CNAME as needed)
 
 ### 5. Enable Monitoring
@@ -353,14 +381,16 @@ psql $DATABASE_URL -c "SELECT version();"
 ### Backend Build Fails
 
 **Problem:** "Cannot find contracts"
-**Solution:** 
+**Solution:**
+
 - Ensure `contracts/` directory is included in deployment
 - Check `.renderignore`/`.railwayignore` - don't exclude contracts/
 
 **Problem:** "Prisma not found"
 **Solution:**
+
 ```bash
-pnpm --filter @earnify/db db:generate
+pnpm --filter @virlo/db db:generate
 # Before deployment
 ```
 
@@ -368,6 +398,7 @@ pnpm --filter @earnify/db db:generate
 
 **Problem:** "stellar CLI not found"
 **Solution:**
+
 - Backend build must not require CLI
 - Move contract deployment to separate CI/CD job
 - Or: Cache Stellar CLI in build
@@ -376,6 +407,7 @@ pnpm --filter @earnify/db db:generate
 
 **Problem:** "Cannot connect to DATABASE_URL"
 **Solution:**
+
 - Verify connection string format
 - Check PostgreSQL is public/accessible
 - Verify Neon firewall rules
@@ -385,6 +417,7 @@ pnpm --filter @earnify/db db:generate
 
 **Problem:** "Could not find apps/web"
 **Solution:**
+
 ```
 Root Directory: apps/web
 Build Command: pnpm build
@@ -398,6 +431,7 @@ Output Directory: .next
 Add GitHub Actions for automated deployment:
 
 **.github/workflows/deploy.yml:**
+
 ```yaml
 name: Deploy
 
@@ -408,24 +442,24 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v3
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: 'pnpm'
-      
+          cache: "pnpm"
+
       - run: pnpm install
       - run: pnpm build
-      
+
       # Deploy frontend
       - uses: vercel/action@master
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           scope: ${{ secrets.VERCEL_ORG_ID }}
-      
+
       # Deploy backend (Render)
       - run: curl ${{ secrets.RENDER_DEPLOY_HOOK }}
 ```
@@ -459,4 +493,3 @@ jobs:
 8. Set up monitoring & backups
 9. Configure custom domains
 10. Enable CI/CD
-

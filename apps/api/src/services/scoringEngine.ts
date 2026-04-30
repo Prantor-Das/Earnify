@@ -1,4 +1,4 @@
-import { prisma } from "@earnify/db";
+import { prisma } from "@virlo/db";
 
 import { updateCreatorScore } from "./sorobanClient.ts";
 

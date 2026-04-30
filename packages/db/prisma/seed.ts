@@ -70,7 +70,7 @@ async function main() {
   const [founder, bob, priya, jaewon] = await Promise.all([
     prisma.user.create({
       data: {
-        email: "alice@earnify.io",
+        email: "alice@virlo.io",
         name: "Alice Chen",
         avatar: "https://lh3.googleusercontent.com/a/default-user=s96-c",
         role: UserRole.FOUNDER,
@@ -79,7 +79,7 @@ async function main() {
     }),
     prisma.user.create({
       data: {
-        email: "bob@earnify.io",
+        email: "bob@virlo.io",
         name: "Bob Singh",
         avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e",
         role: UserRole.USER,
@@ -88,7 +88,7 @@ async function main() {
     }),
     prisma.user.create({
       data: {
-        email: "priya@earnify.io",
+        email: "priya@virlo.io",
         name: "Priya Kumar",
         avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80",
         role: UserRole.USER,
@@ -97,7 +97,7 @@ async function main() {
     }),
     prisma.user.create({
       data: {
-        email: "jaewon@earnify.io",
+        email: "jaewon@virlo.io",
         name: "Jae-won Oh",
         avatar: "https://images.unsplash.com/photo-1542204625-de293a5c4a31",
         role: UserRole.USER,

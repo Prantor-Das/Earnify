@@ -3,8 +3,8 @@ import cors from "cors";
 import express from "express";
 import passport from "passport";
 
-import { prisma } from "@earnify/db";
-import type { ApiHealthResponse } from "@earnify/shared";
+import { prisma } from "@virlo/db";
+import type { ApiHealthResponse } from "@virlo/shared";
 
 import { authRouter } from "./auth/routes.ts";
 import "./auth/passport.ts";
@@ -94,7 +94,7 @@ function createApp() {
 
     const payload: ApiHealthResponse = {
       status: "ok",
-      service: "earnify-api",
+      service: "virlo-api",
       timestamp: new Date().toISOString(),
       campaigns,
     };

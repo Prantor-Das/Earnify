@@ -1,18 +1,21 @@
 export const theme = {
   colors: {
-    primary: "#F59E0B", // Amber accent for CTAs/highlights
-    secondary: "#D4A43A", // Subtle amber tint
-    accent: "#FBBF24", // Bright amber highlight
-    danger: "#EF4444",
-    success: "#A3A3A3",
+    primary: "#F59E0B",
+    secondary: "#D97706",
+    accent: "#F59E0B",
+    danger: "#525252",
+    success: "#F59E0B",
     muted: "#A3A3A3",
-    background: "#080808", // Neutral black
-    surface: "#141414", // Elevated neutral surface
-    border: "#2B2B2B", // Neutral border
+    background: "#FAFAFA",
+    foreground: "#0A0A0A",
+    surface: "#F5F5F5",
+    surfaceStrong: "#E5E5E5",
+    border: "#E5E5E5",
+    grayDark: "#525252",
   },
   typography: {
     fonts: {
-      sans: '"Manrope", "Space Grotesk", "Segoe UI", sans-serif',
+      sans: '"Inter", "Geist Sans", "Segoe UI", sans-serif',
     },
     fontSizes: {
       xs: "0.75rem",
@@ -25,8 +28,8 @@ export const theme = {
     fontWeights: {
       regular: 400,
       medium: 500,
-      semibold: 600,
-      bold: 700,
+      semibold: 500,
+      bold: 500,
     },
   },
   spacing: {
@@ -44,9 +47,9 @@ export const theme = {
   },
   borderRadius: {
     sm: "0.375rem",
-    md: "0.75rem",
-    lg: "1.25rem",
-    full: "9999px",
+    md: "0.375rem",
+    lg: "0.5rem",
+    full: "0.5rem",
   },
   breakpoints: {
     sm: 640,
@@ -106,8 +109,11 @@ export function getTailwindThemeCss() {
     `  --color-success: ${theme.colors.success};`,
     `  --color-muted: ${theme.colors.muted};`,
     `  --color-background: ${theme.colors.background};`,
+    `  --color-foreground: ${theme.colors.foreground};`,
     `  --color-surface: ${theme.colors.surface};`,
+    `  --color-surface-strong: ${theme.colors.surfaceStrong};`,
     `  --color-border: ${theme.colors.border};`,
+    `  --color-gray-dark: ${theme.colors.grayDark};`,
     `  --font-sans: ${theme.typography.fonts.sans};`,
     `  --text-xs: ${theme.typography.fontSizes.xs};`,
     `  --text-sm: ${theme.typography.fontSizes.sm};`,

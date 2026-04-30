@@ -1,5 +1,5 @@
 {
-  "name": "@earnify/web",
+  "name": "@virlo/web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -11,7 +11,7 @@
     "theme:build": "node --experimental-strip-types scripts/build-theme-css.ts"
   },
   "dependencies": {
-    "@earnify/shared": "workspace:*",
+    "@virlo/shared": "workspace:*",
     "@stellar/freighter-api": "^3.1.0",
     "motion": "^12.38.0",
     "next": "^16.2.4",

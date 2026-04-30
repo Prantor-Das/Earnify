@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 
-import type { ApiResponse, AuthUser } from "@earnify/shared";
+import type { ApiResponse, AuthUser } from "@virlo/shared";
 
 type AuthContextValue = {
   user: AuthUser | null;
